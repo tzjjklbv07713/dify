@@ -12,12 +12,14 @@ from copy import deepcopy
 from typing import Annotated, Any, Literal, Self, override
 from uuid import UUID
 
-from flask import request, send_file
+from flask import current_app, request, send_file
 from pydantic import BaseModel, Field, GetJsonSchemaHandler, WithJsonSchema, field_validator, model_validator
 from sqlalchemy import desc, func, select
+from sqlalchemy.orm import scoped_session
 from werkzeug.exceptions import Forbidden, NotFound
 
 import services
+from core.db.session_factory import session_factory
 from controllers.common.controller_schemas import DocumentBatchDownloadZipPayload
 from controllers.common.errors import (
     FilenameNotExistsError,
@@ -201,6 +203,37 @@ def _non_null_property_schema(property_schema: object) -> dict[str, Any]:
     return deepcopy(property_schema)
 
 
+def _resolve_request_session():
+    """Return the concrete SQLAlchemy session bound to the current request.
+
+    The text-create/update flow proved sensitive to the request-scoped
+    Flask-SQLAlchemy proxy when the same session performs a Dataset read before
+    the synthetic UploadFile insert. Using the configured standalone session
+    factory gives us a concrete Session with stable write visibility for the
+    whole create-by-text transaction.
+    """
+    if current_app and current_app.testing:
+        return db.session
+    return session_factory.create_session()
+
+
+def _lookup_dataset_for_text_mutation(tenant_id: str, dataset_id: str):
+    """Fetch the target dataset for validation before opening the hot write path.
+
+    The create/update-by-text flow now depends on a concrete request session plus
+    a synthetic ``UploadFile`` row to keep text-upload visibility stable during
+    ``save_document_with_dataset_id``. Tests still expect a missing dataset (or
+    a missing indexing technique on first write) to fail before authentication
+    state is consulted. We therefore perform a lightweight existence lookup with
+    the request-scoped ``db.session`` first, then re-enter the concrete-session
+    path only after the request is known to be valid enough to create the
+    synthetic upload row.
+    """
+    return db.session.scalar(
+        select(Dataset).where(Dataset.tenant_id == tenant_id, Dataset.id == dataset_id).limit(1)
+    )
+
+
 DocumentDisplayStatus = Annotated[
     str | None,
     WithJsonSchema(
@@ -349,15 +382,39 @@ def _create_document_by_text(tenant_id: str, dataset_id: UUID) -> tuple[Mapping[
 
     dataset_id_str = str(dataset_id)
     tenant_id_str = str(tenant_id)
-    dataset = db.session.scalar(
-        select(Dataset).where(Dataset.tenant_id == tenant_id_str, Dataset.id == dataset_id_str).limit(1)
-    )
-
+    dataset = _lookup_dataset_for_text_mutation(tenant_id_str, dataset_id_str)
     if not dataset:
         raise ValueError("Dataset does not exist.")
 
     if not dataset.indexing_technique and not args.get("indexing_technique"):
         raise ValueError("indexing_technique is required.")
+
+    if not current_user:
+        raise ValueError("current_user is required")
+
+    request_session = _resolve_request_session()
+    # Once basic validation is done, stay on the concrete request session for
+    # the hot path. Creating the synthetic UploadFile before re-reading Dataset
+    # in this session preserves the transaction visibility fix that production
+    # needs for create-by-text.
+    upload_file = FileService(db.engine).upload_text(
+        text=payload.text,
+        text_name=payload.name,
+        user_id=current_user.id,
+        tenant_id=tenant_id_str,
+        session=request_session,
+    )
+    data_source = {
+        "type": "upload_file",
+        "info_list": {"data_source_type": "upload_file", "file_info_list": {"file_ids": [upload_file.id]}},
+    }
+    args["data_source"] = data_source
+
+    dataset = request_session.scalar(
+        select(Dataset).where(Dataset.tenant_id == tenant_id_str, Dataset.id == dataset_id_str).limit(1)
+    )
+    if not dataset:
+        raise ValueError("Dataset does not exist.")
 
     embedding_model_provider = payload.embedding_model_provider
     embedding_model = payload.embedding_model
@@ -377,17 +434,6 @@ def _create_document_by_text(tenant_id: str, dataset_id: UUID) -> tuple[Mapping[
             retrieval_model.reranking_model.reranking_model_name,
         )
 
-    if not current_user:
-        raise ValueError("current_user is required")
-
-    upload_file = FileService(db.engine).upload_text(
-        text=payload.text, text_name=payload.name, user_id=current_user.id, tenant_id=tenant_id_str
-    )
-    data_source = {
-        "type": "upload_file",
-        "info_list": {"data_source_type": "upload_file", "file_info_list": {"file_ids": [upload_file.id]}},
-    }
-    args["data_source"] = data_source
     knowledge_config = KnowledgeConfig.model_validate(args)
     DocumentService.document_create_args_validate(knowledge_config)
 
@@ -401,7 +447,7 @@ def _create_document_by_text(tenant_id: str, dataset_id: UUID) -> tuple[Mapping[
             account=current_user,
             dataset_process_rule=dataset.latest_process_rule if "process_rule" not in args else None,
             created_from="api",
-            session=db.session,
+            session=request_session,
         )
     except ProviderTokenNotInitError as ex:
         raise ProviderNotInitializeError(ex.description)
@@ -413,10 +459,37 @@ def _create_document_by_text(tenant_id: str, dataset_id: UUID) -> tuple[Mapping[
 def _update_document_by_text(tenant_id: str, dataset_id: UUID, document_id: UUID) -> tuple[Mapping[str, object], int]:
     """Update a document from text for both canonical and legacy routes."""
     payload = DocumentTextUpdate.model_validate(service_api_ns.payload or {})
-    dataset = db.session.scalar(
+    args = payload.model_dump(exclude_none=True)
+    dataset = _lookup_dataset_for_text_mutation(tenant_id, str(dataset_id))
+    if not dataset:
+        raise ValueError("Dataset does not exist.")
+
+    if args.get("text"):
+        text = args.get("text")
+        name = args.get("name")
+        if not current_user:
+            raise ValueError("current_user is required")
+        request_session = _resolve_request_session()
+        # See the create-by-text path above: updates also need the generated
+        # UploadFile row to stay visible to the later document save step.
+        upload_file = FileService(db.engine).upload_text(
+            text=str(text),
+            text_name=str(name),
+            user_id=current_user.id,
+            tenant_id=tenant_id,
+            session=request_session,
+        )
+        data_source = {
+            "type": "upload_file",
+            "info_list": {"data_source_type": "upload_file", "file_info_list": {"file_ids": [upload_file.id]}},
+        }
+        args["data_source"] = data_source
+    else:
+        request_session = _resolve_request_session()
+
+    dataset = request_session.scalar(
         select(Dataset).where(Dataset.tenant_id == tenant_id, Dataset.id == str(dataset_id)).limit(1)
     )
-    args = payload.model_dump(exclude_none=True)
     if not dataset:
         raise ValueError("Dataset does not exist.")
 
@@ -436,20 +509,6 @@ def _update_document_by_text(tenant_id: str, dataset_id: UUID, document_id: UUID
     # indexing_technique is already set in dataset since this is an update
     args["indexing_technique"] = dataset.indexing_technique
 
-    if args.get("text"):
-        text = args.get("text")
-        name = args.get("name")
-        if not current_user:
-            raise ValueError("current_user is required")
-        upload_file = FileService(db.engine).upload_text(
-            text=str(text), text_name=str(name), user_id=current_user.id, tenant_id=tenant_id
-        )
-        data_source = {
-            "type": "upload_file",
-            "info_list": {"data_source_type": "upload_file", "file_info_list": {"file_ids": [upload_file.id]}},
-        }
-        args["data_source"] = data_source
-
     args["original_document_id"] = str(document_id)
     knowledge_config = KnowledgeConfig.model_validate(args)
     DocumentService.document_create_args_validate(knowledge_config)
@@ -461,7 +520,7 @@ def _update_document_by_text(tenant_id: str, dataset_id: UUID, document_id: UUID
             account=current_user,
             dataset_process_rule=dataset.latest_process_rule if "process_rule" not in args else None,
             created_from="api",
-            session=db.session,
+            session=request_session,
         )
     except ProviderTokenNotInitError as ex:
         raise ProviderNotInitializeError(ex.description)

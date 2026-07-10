@@ -7,7 +7,6 @@ from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from json import JSONDecodeError
 from typing import Any, override
-
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -21,7 +20,7 @@ from core.entities.provider_entities import (
     SystemConfiguration,
     SystemConfigurationStatus,
 )
-from core.helper import encrypter
+from core.helper import encrypter, ssrf_proxy
 from core.helper.model_provider_cache import (
     ProviderCredentialsCache,
     ProviderCredentialsCacheType,
@@ -1021,6 +1020,90 @@ class ProviderConfiguration(BaseModel):
                 validated_credentials[key] = encrypter.encrypt_token(self.tenant_id, value)
 
         return validated_credentials
+
+    def discover_custom_model_candidates(
+        self,
+        model_type: ModelType,
+        credentials: dict[str, Any],
+    ) -> list[dict[str, str]]:
+        """
+        Discover available custom models from a remote model catalog.
+
+        This currently supports model-hub style credentials:
+        - ``proxy_base_url`` + ``proxy_api_key``
+        - or ``endpoint_url`` + ``api_key``
+        with an optional ``catalog_path``.
+        """
+        base_url = str(
+            credentials.get("proxy_base_url")
+            or credentials.get("endpoint_url")
+            or ""
+        ).strip().rstrip("/")
+        api_key = str(
+            credentials.get("proxy_api_key")
+            or credentials.get("api_key")
+            or credentials.get("openai_api_key")
+            or ""
+        ).strip()
+
+        if not base_url or not api_key:
+            raise ValueError("Model discovery requires a base URL and API key.")
+
+        catalog_path = str(credentials.get("catalog_path") or "/provider/models").strip()
+        if not catalog_path.startswith("/"):
+            catalog_path = f"/{catalog_path}"
+
+        timeout_ms = int(credentials.get("timeout_ms", 15000) or 15000)
+        timeout_seconds = min(max(timeout_ms, 1000), 120000) / 1000
+
+        response = ssrf_proxy.get(
+            f"{base_url}{catalog_path}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            },
+            timeout=timeout_seconds,
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+        raw_items: Any
+        if isinstance(payload, dict):
+            raw_items = payload.get("models")
+            if raw_items is None:
+                raw_items = payload.get("data")
+            if raw_items is None:
+                raw_items = payload.get("items")
+        else:
+            raw_items = payload
+
+        if not isinstance(raw_items, list):
+            raise ValueError("Model discovery response must contain a model list.")
+
+        discovered: list[dict[str, str]] = []
+        seen_models: set[str] = set()
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+
+            model_name = str(item.get("model") or item.get("id") or item.get("name") or "").strip()
+            if not model_name or model_name in seen_models:
+                continue
+
+            remote_model_type = str(item.get("type") or item.get("model_type") or model_type.value).strip()
+            if remote_model_type and remote_model_type != model_type.value:
+                continue
+
+            discovered.append(
+                {
+                    "model": model_name,
+                    "label": str(item.get("label") or model_name),
+                    "model_type": model_type.value,
+                }
+            )
+            seen_models.add(model_name)
+
+        return sorted(discovered, key=lambda item: item["model"])
 
     def create_custom_model_credential(
         self, model_type: ModelType, model: str, credentials: dict[str, Any], credential_name: str | None

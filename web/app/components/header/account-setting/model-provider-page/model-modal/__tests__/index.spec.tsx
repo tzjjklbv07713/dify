@@ -42,6 +42,7 @@ const mockHandlers = vi.hoisted(() => ({
   closeConfirmDelete: vi.fn(),
   openConfirmDelete: vi.fn(),
   handleActiveCredential: vi.fn(),
+  discoverProviderModels: vi.fn(),
 }))
 
 type FormResponse = {
@@ -51,6 +52,10 @@ type FormResponse = {
 const mockFormState = vi.hoisted(() => ({
   responses: [] as FormResponse[],
   setFieldValue: vi.fn(),
+}))
+
+const mockDiscoveryState = vi.hoisted(() => ({
+  isPending: false,
 }))
 
 vi.mock('../../model-auth/hooks', () => ({
@@ -94,10 +99,13 @@ vi.mock('@/app/components/base/form/form-scenarios/auth', async () => {
     onChange,
   }: {
     onChange?: (field: string, value: string) => void
-  }, ref: React.ForwardedRef<{ getFormValues: () => FormResponse, getForm: () => { setFieldValue: (field: string, value: string) => void } }>) => {
+  }, ref: React.ForwardedRef<{ getFormValues: () => FormResponse, getForm: () => { setFieldValue: (field: string, value: string) => void, state: { values: Record<string, unknown> } } }>) => {
     React.useImperativeHandle(ref, () => ({
       getFormValues: () => mockFormState.responses.shift() || { isCheckValidated: false, values: {} },
-      getForm: () => ({ setFieldValue: mockFormState.setFieldValue }),
+      getForm: () => ({
+        setFieldValue: mockFormState.setFieldValue,
+        state: { values: { __model_type: ModelTypeEnum.textGeneration } },
+      }),
     }))
     return (
       <div>
@@ -116,6 +124,13 @@ vi.mock('../../model-auth', () => ({
       <button type="button" onClick={() => onSelect({ credential_id: 'new', addNewCredential: true })}>Add New</button>
     </div>
   ),
+}))
+
+vi.mock('@/service/use-models', () => ({
+  useDiscoverProviderModels: () => ({
+    mutateAsync: mockHandlers.discoverProviderModels,
+    isPending: mockDiscoveryState.isPending,
+  }),
 }))
 
 const createI18n = (text: string) => ({ en_US: text, zh_Hans: text })
@@ -190,6 +205,7 @@ describe('ModelModal', () => {
     mockState.modelNameAndTypeFormSchemas = []
     mockState.modelNameAndTypeFormValues = {}
     mockFormState.responses = []
+    mockDiscoveryState.isPending = false
   })
 
   it('should show title, description, and loading state for predefined models', () => {
@@ -392,5 +408,65 @@ describe('ModelModal', () => {
     await waitFor(() => {
       expect(mockHandlers.handleSaveCredential).not.toHaveBeenCalled()
     })
+  })
+
+  it('should discover remote models and fill the selected model name', async () => {
+    mockState.modelNameAndTypeFormSchemas = [{ variable: '__model_name', type: 'text-input' } as unknown as CredentialFormSchema]
+    mockState.formSchemas = [
+      { variable: 'proxy_base_url', type: 'text-input' } as unknown as CredentialFormSchema,
+      { variable: 'proxy_api_key', type: 'secret-input' } as unknown as CredentialFormSchema,
+      { variable: 'catalog_path', type: 'text-input' } as unknown as CredentialFormSchema,
+    ]
+    mockHandlers.discoverProviderModels.mockResolvedValue({
+      data: [
+        { model: 'doubao-seed-2.0-pro', model_type: ModelTypeEnum.textGeneration, label: 'Doubao Seed 2.0 Pro' },
+        { model: 'doubao-lite', model_type: ModelTypeEnum.textGeneration, label: 'Doubao Lite' },
+      ],
+    })
+    mockFormState.responses = [
+      {
+        isCheckValidated: true,
+        values: {
+          __authorization_name__: 'Hub Auth',
+          proxy_base_url: 'https://hub.example.com',
+          proxy_api_key: 'secret',
+          catalog_path: '/provider/models',
+        },
+      },
+    ]
+
+    renderModal({
+      configurateMethod: ConfigurationMethodEnum.customizableModel,
+      mode: ModelModalModeEnum.configCustomModel,
+      provider: createProvider({
+        configurate_methods: [ConfigurationMethodEnum.customizableModel],
+        model_credential_schema: {
+          model: { label: createI18n('Model Name'), placeholder: createI18n('Please enter model name') },
+          credential_form_schemas: [
+            { variable: 'proxy_base_url', type: 'text-input' } as unknown as CredentialFormSchema,
+            { variable: 'proxy_api_key', type: 'secret-input' } as unknown as CredentialFormSchema,
+            { variable: 'catalog_path', type: 'text-input' } as unknown as CredentialFormSchema,
+          ],
+        },
+      }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.modelProvider.auth.fetchModels' }))
+
+    await waitFor(() => {
+      expect(mockHandlers.discoverProviderModels).toHaveBeenCalledWith({
+        model_type: ModelTypeEnum.textGeneration,
+        credentials: {
+          proxy_base_url: 'https://hub.example.com',
+          proxy_api_key: 'secret',
+          catalog_path: '/provider/models',
+        },
+      })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Doubao Seed 2.0 Pro/i }))
+
+    expect(mockFormState.setFieldValue).toHaveBeenCalledWith('__model_name', 'doubao-seed-2.0-pro')
+    expect(mockFormState.setFieldValue).toHaveBeenCalledWith('__model_type', ModelTypeEnum.textGeneration)
   })
 })

@@ -314,6 +314,12 @@ export type ModelCredentialPayload = {
   credential_id?: string
 }
 
+export type DiscoveredModel = {
+  model: string
+  model_type: ModelTypeEnum
+  label?: string
+}
+
 export enum ModelModalModeEnum {
   configProviderCredential = 'config-provider-credential',
   configCustomModel = 'config-custom-model',

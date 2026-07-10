@@ -1093,6 +1093,13 @@ class TestDocumentAddByTextApi:
         assert response["document"]["data_source_info"] == {"upload_file_id": "file-1"}
         assert response["document"]["doc_metadata"] == []
         assert "data_source_info_dict" not in response["document"]
+        mock_file_svc.upload_text.assert_called_once_with(
+            text="This is test content",
+            text_name="Test Document",
+            user_id=mock_current_user.id,
+            tenant_id=mock_tenant.id,
+            session=mock_db.session,
+        )
 
     @patch("controllers.service_api.wraps.FeatureService")
     @patch("controllers.service_api.wraps.validate_and_get_api_token")

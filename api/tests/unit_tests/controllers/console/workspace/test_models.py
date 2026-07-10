@@ -10,6 +10,7 @@ from controllers.console.workspace.models import (
     ModelProviderAvailableModelApi,
     ModelProviderModelApi,
     ModelProviderModelCredentialApi,
+    ModelProviderModelDiscoveryApi,
     ModelProviderModelCredentialSwitchApi,
     ModelProviderModelDisableApi,
     ModelProviderModelEnableApi,
@@ -89,6 +90,29 @@ class TestModelProviderModelApi:
             result = method(api, "tenant1", "openai")
 
         assert "data" in result
+
+
+class TestModelProviderModelDiscoveryApi:
+    def test_discover_models_success(self, app: Flask):
+        api = ModelProviderModelDiscoveryApi()
+        method = unwrap(api.post)
+
+        payload = {
+            "model_type": ModelType.LLM,
+            "credentials": {"proxy_base_url": "https://hub.example.com", "proxy_api_key": "secret"},
+        }
+
+        with (
+            app.test_request_context("/", json=payload),
+            patch("controllers.console.workspace.models.ModelProviderService") as service_mock,
+        ):
+            service_mock.return_value.discover_custom_models.return_value = [
+                {"model": "doubao-seed-2.0-pro", "model_type": "llm", "label": "Doubao Seed 2.0 Pro"},
+            ]
+
+            result = method(api, "tenant1", "openai")
+
+        assert result["data"][0]["model"] == "doubao-seed-2.0-pro"
 
     def test_post_models_success(self, app: Flask):
         api = ModelProviderModelApi()

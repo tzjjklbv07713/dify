@@ -3,7 +3,7 @@ import { FieldControl, FieldLabel, FieldRoot } from '@langgenius/dify-ui/field'
 import { Form } from '@langgenius/dify-ui/form'
 import { toast } from '@langgenius/dify-ui/toast'
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { trackEvent } from '@/app/components/base/amplitude'
 import { emailRegex } from '@/config'
@@ -48,6 +48,10 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup }: MailAndP
   const [password, setPassword] = useState('')
 
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    toast.dismiss()
+  }, [])
 
   const handleEmailPasswordLogin = async () => {
     if (!email) {
@@ -172,11 +176,14 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup }: MailAndP
 
       <div className="mb-2">
         <Button
-          type="submit"
+          type="button"
           loading={isLoading}
           variant="primary"
           disabled={isLoading || !email || !password}
           className="w-full"
+          onClick={() => {
+            void handleEmailPasswordLogin()
+          }}
         >
           {t('signBtn', { ns: 'login' })}
         </Button>

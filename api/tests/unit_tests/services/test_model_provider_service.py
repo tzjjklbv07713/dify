@@ -229,6 +229,21 @@ class TestModelProviderServiceDelegation:
         ("method_name", "method_kwargs", "provider_method_name", "expected_kwargs", "provider_return"),
         [
             (
+                "discover_custom_models",
+                {
+                    "tenant_id": "tenant-1",
+                    "provider": "openai",
+                    "model_type": ModelType.LLM,
+                    "credentials": {"proxy_base_url": "https://hub.example.com", "proxy_api_key": "key"},
+                },
+                "discover_custom_model_candidates",
+                {
+                    "model_type": ModelType.LLM,
+                    "credentials": {"proxy_base_url": "https://hub.example.com", "proxy_api_key": "key"},
+                },
+                [{"model": "doubao-seed-2.0-pro", "model_type": "llm", "label": "Doubao"}],
+            ),
+            (
                 "get_model_credential",
                 {
                     "tenant_id": "tenant-1",
@@ -368,6 +383,8 @@ class TestModelProviderServiceDelegation:
         getattr(provider_configuration, provider_method_name).assert_called_once_with(**expected_kwargs)
         if method_name == "get_model_credential":
             assert result == {"api_key": "x"}
+        if method_name == "discover_custom_models":
+            assert result == [{"model": "doubao-seed-2.0-pro", "model_type": "llm", "label": "Doubao"}]
 
     @pytest.mark.parametrize(
         ("method_name", "method_kwargs", "provider_method_name", "expected_kwargs"),

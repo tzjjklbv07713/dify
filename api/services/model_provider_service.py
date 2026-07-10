@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -150,6 +151,25 @@ class ModelProviderService:
             ModelWithProviderEntityResponse(tenant_id=tenant_id, model=model)
             for model in provider_configurations.get_models(provider=provider)
         ]
+
+    def discover_custom_models(
+        self,
+        tenant_id: str,
+        provider: str,
+        model_type: str,
+        credentials: Mapping[str, Any],
+    ) -> list[dict[str, str]]:
+        """
+        Discover model candidates from a remote custom-model catalog without saving credentials.
+
+        This is primarily used by model-hub style providers whose model credential
+        schema exposes a proxy base URL, API key, and optional catalog path.
+        """
+        provider_configuration = self._get_provider_configuration(tenant_id, provider)
+        return provider_configuration.discover_custom_model_candidates(
+            model_type=ModelType(model_type),
+            credentials=dict(credentials),
+        )
 
     def get_provider_available_credentials(self, tenant_id: str, provider: str, user: "Account | None" = None):
         return self._get_provider_manager(tenant_id).get_provider_available_credentials(

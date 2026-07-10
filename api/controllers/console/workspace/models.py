@@ -548,7 +548,23 @@ class ParserValidate(BaseModel):
     credentials: dict[str, Any]
 
 
-register_schema_models(console_ns, ParserSwitch, ParserValidate)
+class ParserDiscoverModels(BaseModel):
+    model_type: ModelType
+    credentials: dict[str, Any]
+
+
+class DiscoveredModelResponseItem(BaseModel):
+    model: str
+    model_type: ModelType
+    label: str | None = None
+
+
+class ModelDiscoveryResponse(ResponseModel):
+    data: list[DiscoveredModelResponseItem] = Field(default_factory=list)
+
+
+register_schema_models(console_ns, ParserSwitch, ParserValidate, ParserDiscoverModels, DiscoveredModelResponseItem)
+register_response_schema_models(console_ns, ModelDiscoveryResponse)
 
 
 @console_ns.route("/workspaces/current/model-providers/<path:provider>/models/credentials/validate")
@@ -589,6 +605,34 @@ class ModelProviderModelValidateApi(Resource):
             response["error"] = error or ""
 
         return response
+
+
+@console_ns.route("/workspaces/current/model-providers/<path:provider>/models/discover")
+class ModelProviderModelDiscoveryApi(Resource):
+    @console_ns.expect(console_ns.models[ParserDiscoverModels.__name__])
+    @console_ns.response(
+        200,
+        "Model discovery result",
+        console_ns.models[ModelDiscoveryResponse.__name__],
+    )
+    @setup_required
+    @login_required
+    @is_admin_or_owner_required
+    @rbac_permission_required(RBACResourceScope.WORKSPACE, RBACPermission.CREDENTIAL_CREATE, resource_required=False)
+    @account_initialization_required
+    @with_current_tenant_id
+    def post(self, tenant_id: str, provider: str):
+        args = ParserDiscoverModels.model_validate(console_ns.payload)
+
+        model_provider_service = ModelProviderService()
+        models = model_provider_service.discover_custom_models(
+            tenant_id=tenant_id,
+            provider=provider,
+            model_type=args.model_type,
+            credentials=args.credentials,
+        )
+
+        return jsonable_encoder({"data": models})
 
 
 @console_ns.route("/workspaces/current/model-providers/<path:provider>/models/parameter-rules")

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import Engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, scoped_session, sessionmaker
 from werkzeug.exceptions import NotFound
 
 from configs import dify_config
@@ -203,6 +203,51 @@ class TestFileService:
             mock_storage.save.assert_called_once()
             mock_db_session.add.assert_called_once()
             mock_db_session.commit.assert_called_once()
+
+    def test_upload_text_reuses_provided_session(self, file_service: FileService):
+        text = "sample text"
+        text_name = "test.txt"
+        user_id = "user_id"
+        tenant_id = "tenant_id"
+        external_session = MagicMock(spec=Session)
+
+        with patch("services.file_service.storage") as mock_storage:
+            result = file_service.upload_text(
+                text,
+                text_name,
+                user_id,
+                tenant_id,
+                session=external_session,
+            )
+
+            assert result.name == text_name
+            mock_storage.save.assert_called_once()
+            external_session.add.assert_called_once_with(result)
+            external_session.flush.assert_called_once()
+            external_session.commit.assert_not_called()
+
+    def test_upload_text_reuses_scoped_session_proxy(self, file_service: FileService, mock_db_session, mock_session_maker):
+        text = "sample text"
+        text_name = "test.txt"
+        user_id = "user_id"
+        tenant_id = "tenant_id"
+        scoped = scoped_session(mock_session_maker)
+
+        with patch("services.file_service.storage") as mock_storage:
+            result = file_service.upload_text(
+                text,
+                text_name,
+                user_id,
+                tenant_id,
+                session=scoped,
+            )
+
+            assert result.name == text_name
+            mock_storage.save.assert_called_once()
+            mock_db_session.add.assert_called_once_with(result)
+            mock_db_session.flush.assert_called_once()
+            mock_db_session.commit.assert_not_called()
+            scoped.remove()
 
     def test_upload_text_long_name(self, file_service: FileService, mock_db_session):
         long_name = "a" * 210

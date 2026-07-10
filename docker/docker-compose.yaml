@@ -374,6 +374,8 @@ services:
   web:
     image: langgenius/dify-web:1.15.0
     restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - path: ./envs/core-services/web.env
         required: false

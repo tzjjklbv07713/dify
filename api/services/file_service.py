@@ -9,7 +9,7 @@ from typing import Literal
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from sqlalchemy import Engine, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, scoped_session, sessionmaker
 from werkzeug.exceptions import NotFound
 
 from configs import dify_config
@@ -140,7 +140,27 @@ class FileService:
         blob = storage.load_once(upload_file_key)
         return base64.b64encode(blob).decode()
 
-    def upload_text(self, text: str, text_name: str, user_id: str, tenant_id: str) -> UploadFile:
+    def upload_text(
+        self,
+        text: str,
+        text_name: str,
+        user_id: str,
+        tenant_id: str,
+        *,
+        session: Session | None = None,
+    ) -> UploadFile:
+        """Persist synthetic text as an ``UploadFile`` record.
+
+        ``create-by-text`` and ``update-by-text`` immediately hand the generated
+        ``file_ids`` back to ``save_document_with_dataset_id()`` inside the same
+        request. When callers provide an existing SQLAlchemy ``session`` we must
+        attach and flush the ``UploadFile`` in that session so the later lookup
+        can see the row under the current transaction isolation. Flask-SQLAlchemy
+        exposes ``db.session`` as a ``scoped_session`` proxy, so we normalize it
+        to the concrete ``Session`` bound to the current request before writing.
+        The standalone path keeps the historical behaviour of opening and
+        committing its own session for other call sites.
+        """
         if len(text_name) > 200:
             text_name = text_name[:200]
         # user uuid as file name
@@ -167,9 +187,14 @@ class FileService:
             used_at=naive_utc_now(),
         )
 
-        with self._session_maker(expire_on_commit=False) as session:
-            session.add(upload_file)
-            session.commit()
+        if session is not None:
+            active_session = session() if isinstance(session, scoped_session) else session
+            active_session.add(upload_file)
+            active_session.flush()
+        else:
+            with self._session_maker(expire_on_commit=False) as local_session:
+                local_session.add(upload_file)
+                local_session.commit()
 
         return upload_file
 
@@ -299,8 +324,11 @@ class FileService:
         We keep this conservative: the upload flow already rejects `/` and `\\`, but older rows (or imported data)
         could still contain unsafe names.
         """
-        # Drop any directory components and prevent empty names.
-        base = os.path.basename(name).strip() or "file"
+        # Treat forward slashes as archive path separators, but keep backslashes
+        # as literal characters until the final replacement step so this helper
+        # behaves consistently across platforms (Windows `basename()` would
+        # otherwise drop the `a\` prefix from a legacy name like `a\b`).
+        base = str(name).split("/")[-1].strip() or "file"
 
         # ZIP uses forward slashes as separators; remove any residual separator characters.
         return base.replace("/", "_").replace("\\", "_")

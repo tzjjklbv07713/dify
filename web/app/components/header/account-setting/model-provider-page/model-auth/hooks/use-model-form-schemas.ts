@@ -3,6 +3,7 @@ import type {
   CustomModelCredential,
   ModelProvider,
 } from '../../declarations'
+import { ModelTypeEnum } from '../../declarations'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FormTypeEnum } from '@/app/components/base/form/types'
@@ -52,6 +53,30 @@ export const useModelFormSchemas = (
     ]
   }, [formSchemas, t])
 
+  const modelTypeLabels = useMemo(() => {
+    const buildLabel = (
+      enKey:
+        | 'modelProvider.modelTypeOption.llm'
+        | 'modelProvider.modelTypeOption.textEmbedding'
+        | 'modelProvider.modelTypeOption.rerank'
+        | 'modelProvider.modelTypeOption.speechToText'
+        | 'modelProvider.modelTypeOption.moderation'
+        | 'modelProvider.modelTypeOption.tts',
+    ) => ({
+      en_US: t(enKey, { ns: 'common', lng: 'en-US' }),
+      zh_Hans: t(enKey, { ns: 'common', lng: 'zh-Hans' }),
+    })
+
+    return {
+      [ModelTypeEnum.textGeneration]: buildLabel('modelProvider.modelTypeOption.llm'),
+      [ModelTypeEnum.textEmbedding]: buildLabel('modelProvider.modelTypeOption.textEmbedding'),
+      [ModelTypeEnum.rerank]: buildLabel('modelProvider.modelTypeOption.rerank'),
+      [ModelTypeEnum.speech2text]: buildLabel('modelProvider.modelTypeOption.speechToText'),
+      [ModelTypeEnum.moderation]: buildLabel('modelProvider.modelTypeOption.moderation'),
+      [ModelTypeEnum.tts]: buildLabel('modelProvider.modelTypeOption.tts'),
+    }
+  }, [t])
+
   const formValues = useMemo(() => {
     let result: any = {}
     formSchemas.forEach((schema) => {
@@ -72,12 +97,12 @@ export const useModelFormSchemas = (
       return []
 
     const modelNameSchema = genModelNameFormSchema(model_credential_schema?.model)
-    const modelTypeSchema = genModelTypeFormSchema(supported_model_types)
+    const modelTypeSchema = genModelTypeFormSchema(supported_model_types, modelTypeLabels)
     return [
       modelNameSchema,
       modelTypeSchema,
     ]
-  }, [supported_model_types, model_credential_schema?.model, providerFormSchemaPredefined])
+  }, [supported_model_types, model_credential_schema?.model, modelTypeLabels, providerFormSchemaPredefined])
 
   const modelNameAndTypeFormValues = useMemo(() => {
     let result = {}

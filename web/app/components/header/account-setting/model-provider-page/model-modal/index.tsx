@@ -3,6 +3,7 @@ import type {
   Credential,
   CustomConfigurationModelFixedFields,
   CustomModel,
+  DiscoveredModel,
   ModelProvider,
 } from '../declarations'
 import type {
@@ -30,6 +31,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { toast } from '@langgenius/dify-ui/toast'
 import { useTranslation } from 'react-i18next'
 import Badge from '@/app/components/base/badge'
 import AuthForm from '@/app/components/base/form/form-scenarios/auth'
@@ -53,6 +55,7 @@ import {
 } from '../hooks'
 import { CredentialSelector } from '../model-auth'
 import { useModelFormSchemas } from '../model-auth/hooks'
+import { useDiscoverProviderModels } from '@/service/use-models'
 
 type ModelModalProps = {
   provider: ModelProvider
@@ -118,9 +121,19 @@ const ModelModal: FC<ModelModalProps> = ({
   const formRef1 = useRef<FormRefObject>(null)
   const [selectedCredential, setSelectedCredential] = useState<Credential & { addNewCredential?: boolean } | undefined>()
   const formRef2 = useRef<FormRefObject>(null)
+  const [discoveredModels, setDiscoveredModels] = useState<DiscoveredModel[]>([])
+  const [discoverError, setDiscoverError] = useState('')
+  const { mutateAsync: discoverProviderModels, isPending: isDiscoveringModels } = useDiscoverProviderModels(provider.provider)
   const isEditMode = !!credential && !!Object.keys(formSchemasValue || {}).filter((key) => {
     return key !== '__model_name' && key !== '__model_type' && !!formValues[key]
   }).length && canManageCredential
+
+  const supportsModelDiscovery = useMemo(() => {
+    const variables = new Set((provider.model_credential_schema?.credential_form_schemas || []).map(schema => schema.variable))
+    const hasBaseUrl = variables.has('proxy_base_url') || variables.has('endpoint_url')
+    const hasApiKey = variables.has('proxy_api_key') || variables.has('api_key') || variables.has('openai_api_key')
+    return mode === ModelModalModeEnum.configCustomModel && hasBaseUrl && hasApiKey
+  }, [mode, provider.model_credential_schema])
 
   const handleSave = useCallback(async () => {
     if (mode === ModelModalModeEnum.addCustomModelToModelList && selectedCredential && !selectedCredential?.addNewCredential) {
@@ -293,6 +306,51 @@ const ModelModal: FC<ModelModalProps> = ({
     onCancel()
   }, [handleConfirmDelete, onCancel])
 
+  const handleDiscoverModels = useCallback(async () => {
+    const credentialFormResult = formRef2.current?.getFormValues({
+      needCheckValidatedValues: true,
+      needTransformWhenSecretFieldIsPristine: true,
+    }) || { isCheckValidated: false, values: {} }
+
+    if (!credentialFormResult.isCheckValidated)
+      return
+
+    const modelForm = formRef1.current?.getForm()
+    const modelType = modelForm?.state?.values?.__model_type || provider.supported_model_types[0]
+    if (!modelType)
+      return
+
+    const { __authorization_name__, ...credentials } = credentialFormResult.values
+
+    try {
+      setDiscoverError('')
+      setDiscoveredModels([])
+      const response = await discoverProviderModels({
+        model_type: modelType,
+        credentials,
+      })
+      const models = response.data || []
+      setDiscoveredModels(models)
+      if (!models.length) {
+        const message = t('modelProvider.auth.fetchModelsEmpty', { ns: 'common' })
+        setDiscoverError(message)
+        toast.error(message)
+      }
+    }
+    catch (error: any) {
+      const message = error?.message || t('api.actionFailed', { ns: 'common' })
+      setDiscoveredModels([])
+      setDiscoverError(message)
+      toast.error(message)
+    }
+  }, [discoverProviderModels, provider.supported_model_types, t])
+
+  const handleSelectDiscoveredModel = useCallback((selectedModel: DiscoveredModel) => {
+    const modelForm = formRef1.current?.getForm()
+    modelForm?.setFieldValue('__model_name', selectedModel.model)
+    modelForm?.setFieldValue('__model_type', selectedModel.model_type)
+  }, [])
+
   const handleModelNameAndTypeChange = useCallback((field: string, value: any) => {
     const {
       getForm,
@@ -327,18 +385,67 @@ const ModelModal: FC<ModelModalProps> = ({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3">
           {
             mode === ModelModalModeEnum.configCustomModel && (
-              <AuthForm
-                formSchemas={modelNameAndTypeFormSchemas.map((formSchema) => {
-                  return {
-                    ...formSchema,
-                    name: formSchema.variable,
-                  }
-                }) as FormSchema[]}
-                defaultValues={modelNameAndTypeFormValues}
-                inputClassName="justify-start"
-                ref={formRef1}
-                onChange={handleModelNameAndTypeChange}
-              />
+              <>
+                <AuthForm
+                  formSchemas={modelNameAndTypeFormSchemas.map((formSchema) => {
+                    return {
+                      ...formSchema,
+                      name: formSchema.variable,
+                    }
+                  }) as FormSchema[]}
+                  defaultValues={modelNameAndTypeFormValues}
+                  inputClassName="justify-start"
+                  ref={formRef1}
+                  onChange={handleModelNameAndTypeChange}
+                />
+                {
+                  supportsModelDiscovery && (
+                    <div className="mt-3 rounded-xl border border-divider-subtle bg-background-default-subtle p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="system-xs-regular text-text-tertiary">
+                          {t('modelProvider.auth.fetchModelsTip', { ns: 'common' })}
+                        </div>
+                        <Button
+                          size="small"
+                          onClick={handleDiscoverModels}
+                          loading={isDiscoveringModels}
+                        >
+                          {t('modelProvider.auth.fetchModels', { ns: 'common' })}
+                        </Button>
+                      </div>
+                      {
+                        !!discoverError && (
+                          <div className="mt-2 system-xs-regular text-text-destructive">{discoverError}</div>
+                        )
+                      }
+                      {
+                        !!discoveredModels.length && (
+                          <div className="mt-3 max-h-48 space-y-1 overflow-y-auto">
+                            {discoveredModels.map(discoveredModel => (
+                              <button
+                                key={`${discoveredModel.model_type}-${discoveredModel.model}`}
+                                type="button"
+                                className="flex w-full items-center justify-between rounded-lg border border-divider-subtle px-3 py-2 text-left hover:bg-state-base-hover"
+                                onClick={() => handleSelectDiscoveredModel(discoveredModel)}
+                              >
+                                <div className="min-w-0">
+                                  <div className="truncate system-sm-medium text-text-primary">
+                                    {discoveredModel.label || discoveredModel.model}
+                                  </div>
+                                  <div className="truncate system-xs-regular text-text-tertiary">
+                                    {discoveredModel.model}
+                                  </div>
+                                </div>
+                                <Badge>{discoveredModel.model_type}</Badge>
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      }
+                    </div>
+                  )
+                }
+              </>
             )
           }
           {

@@ -20,6 +20,20 @@ export type ServerConsoleClientContext = {
   csrfToken?: string
 }
 
+const getCookieValue = (cookieHeader: string | null, cookieName: string) => {
+  if (!cookieHeader)
+    return undefined
+
+  const prefix = `${cookieName}=`
+  for (const part of cookieHeader.split(';')) {
+    const trimmed = part.trim()
+    if (trimmed.startsWith(prefix))
+      return trimmed.slice(prefix.length)
+  }
+
+  return undefined
+}
+
 const withTrailingSlash = (value: string) => value.endsWith('/') ? value : `${value}/`
 const withoutLeadingSlash = (value: string) => value.startsWith('/') ? value.slice(1) : value
 
@@ -97,10 +111,12 @@ export const getServerConsoleClientContext = async (): Promise<ServerConsoleClie
   const { cookies, headers } = await import('@/next/headers')
   const requestHeaders = await headers()
   const cookieStore = await cookies()
+  const rawCookieHeader = requestHeaders.get('cookie')
+  const csrfCookieName = CSRF_COOKIE_NAME()
 
   return {
-    cookie: requestHeaders.get('cookie') || undefined,
-    csrfToken: cookieStore.get(CSRF_COOKIE_NAME())?.value,
+    cookie: rawCookieHeader || undefined,
+    csrfToken: cookieStore.get(csrfCookieName)?.value ?? getCookieValue(rawCookieHeader, csrfCookieName),
   }
 }
 

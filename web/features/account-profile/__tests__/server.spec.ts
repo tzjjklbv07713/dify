@@ -1,7 +1,7 @@
 import type { GetAccountProfileResponse } from '@dify/contracts/api/console/account/types.gen'
 import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { resolveServerConsoleApiUrl } from '@/service/server'
+import { getServerConsoleClientContext, getServerConsoleRequestHeaders, resolveServerConsoleApiUrl } from '@/service/server'
 import { userProfileQueryOptions } from '../client'
 
 const headersMock = vi.fn()
@@ -77,5 +77,24 @@ describe('serverUserProfileQueryOptions', () => {
 
   it('should preserve absolute API prefixes', () => {
     expect(resolveServerConsoleApiUrl('/account/profile', undefined, 'https://console.example.com/console/api')).toBe('https://console.example.com/console/api/account/profile')
+  })
+
+  it('should fallback to the raw cookie header when csrf cookie lookup misses', async () => {
+    headersMock.mockResolvedValue(new Headers({
+      cookie: 'access_token=abc; refresh_token=def; csrf_token=fallback-token',
+    }))
+    cookiesMock.mockResolvedValue({
+      get: vi.fn(() => undefined),
+    })
+
+    const context = await getServerConsoleClientContext()
+    const requestHeaders = await getServerConsoleRequestHeaders()
+
+    expect(context).toEqual({
+      cookie: 'access_token=abc; refresh_token=def; csrf_token=fallback-token',
+      csrfToken: 'fallback-token',
+    })
+    expect(requestHeaders.get('cookie')).toBe('access_token=abc; refresh_token=def; csrf_token=fallback-token')
+    expect(requestHeaders.get('X-CSRF-Token')).toBe('fallback-token')
   })
 })

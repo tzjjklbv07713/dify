@@ -2,7 +2,7 @@ import { Button } from '@langgenius/dify-ui/button'
 import { FieldControl, FieldLabel, FieldRoot } from '@langgenius/dify-ui/field'
 import { Form } from '@langgenius/dify-ui/form'
 import { toast } from '@langgenius/dify-ui/toast'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { COUNT_DOWN_TIME_MS, useSetCountdownLeftTime } from '@/app/components/signin/storage'
 import { emailRegex } from '@/config'
@@ -23,6 +23,10 @@ export default function MailAndCodeAuth({ isInvite }: MailAndCodeAuthProps) {
   const [loading, setLoading] = useState(false)
   const locale = useLocale()
   const setCountdownLeftTime = useSetCountdownLeftTime()
+
+  useEffect(() => {
+    toast.dismiss()
+  }, [])
 
   const handleGetEMailVerificationCode = async () => {
     try {
@@ -71,7 +75,18 @@ export default function MailAndCodeAuth({ isInvite }: MailAndCodeAuthProps) {
           onValueChange={setEmail}
         />
         <div className="mt-3">
-          <Button type="submit" loading={loading} disabled={loading || !email} variant="primary" className="w-full">{t('signup.verifyMail', { ns: 'login' })}</Button>
+          <Button
+            type="button"
+            loading={loading}
+            disabled={loading || !email}
+            variant="primary"
+            className="w-full"
+            onClick={() => {
+              void handleGetEMailVerificationCode()
+            }}
+          >
+            {t('signup.verifyMail', { ns: 'login' })}
+          </Button>
         </div>
       </FieldRoot>
     </Form>

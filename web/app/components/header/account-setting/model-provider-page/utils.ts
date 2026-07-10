@@ -79,7 +79,12 @@ export const modelTypeFormat = (modelType: ModelTypeEnum) => {
   return modelType.toLocaleUpperCase()
 }
 
-export const genModelTypeFormSchema = (modelTypes: ModelTypeEnum[]): Omit<CredentialFormSchemaSelect, 'name'> => {
+type ModelTypeLabelMap = Partial<Record<ModelTypeEnum, TypeWithI18N>>
+
+export const genModelTypeFormSchema = (
+  modelTypes: ModelTypeEnum[],
+  modelTypeLabels?: ModelTypeLabelMap,
+): Omit<CredentialFormSchemaSelect, 'name'> => {
   return {
     type: FormTypeEnum.select,
     label: {
@@ -91,12 +96,14 @@ export const genModelTypeFormSchema = (modelTypes: ModelTypeEnum[]): Omit<Creden
     required: true,
     show_on: [],
     options: modelTypes.map((modelType: ModelTypeEnum) => {
+      const label = modelTypeLabels?.[modelType] || {
+        zh_Hans: MODEL_TYPE_TEXT[modelType],
+        en_US: MODEL_TYPE_TEXT[modelType],
+      }
+
       return {
         value: modelType,
-        label: {
-          zh_Hans: MODEL_TYPE_TEXT[modelType],
-          en_US: MODEL_TYPE_TEXT[modelType],
-        },
+        label,
         show_on: [],
       }
     }),

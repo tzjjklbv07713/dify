@@ -105,9 +105,7 @@ class TestLoginRequired:
 
         with login_app.test_request_context():
             result = protected_view()
-            csrf_check.assert_called_once()
-            assert csrf_check.call_args.args[0].method == "GET"
-            assert csrf_check.call_args.args[1] == "test_user"
+            csrf_check.assert_not_called()
 
         assert result == "Protected content"
         resolve_user.assert_called_once_with()
@@ -168,6 +166,7 @@ class TestLoginRequired:
         ("method", "login_disabled"),
         [
             pytest.param("OPTIONS", False, id="options"),
+            pytest.param("GET", False, id="safe-get"),
             pytest.param("GET", True, id="login-disabled"),
         ],
     )

@@ -1,4 +1,5 @@
 import type {
+  DiscoveredModel,
   ModelCredential,
   ModelCredentialPayload,
   ModelItem,
@@ -150,6 +151,17 @@ export const useUpdateModelLoadBalancingConfig = (provider: string) => {
       load_balancing: ModelLoadBalancingConfig
       credential_id?: string
     }) => post<{ result: string }>(`/workspaces/current/model-providers/${provider}/models`, {
+      body: data,
+    }),
+  })
+}
+
+export const useDiscoverProviderModels = (provider: string) => {
+  return useMutation({
+    mutationFn: (data: {
+      model_type: ModelTypeEnum
+      credentials: Record<string, unknown>
+    }) => post<{ data: DiscoveredModel[] }>(`/workspaces/current/model-providers/${provider}/models/discover`, {
       body: data,
     }),
   })

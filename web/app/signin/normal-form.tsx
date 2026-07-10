@@ -84,6 +84,10 @@ function NormalForm() {
   }, [isInviteLink, isLoggedIn, router, searchParams])
 
   useEffect(() => {
+    toast.dismiss()
+  }, [])
+
+  useEffect(() => {
     if (message)
       toast.error(message)
   }, [message])

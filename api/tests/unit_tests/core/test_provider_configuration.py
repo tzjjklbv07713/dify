@@ -482,3 +482,59 @@ class TestProviderConfiguration:
 
         # Assert
         assert obfuscated == {}
+
+    @patch("core.entities.provider_configuration.ssrf_proxy.get")
+    def test_discover_custom_model_candidates_should_use_ssrf_proxy_and_filter_results(
+        self,
+        mock_ssrf_get,
+        provider_configuration,
+    ):
+        response = Mock()
+        response.json.return_value = {
+            "data": [
+                {"model": "doubao-seed-2.0-pro", "model_type": "llm", "label": "Doubao Seed 2.0 Pro"},
+                {"id": "doubao-lite", "type": "llm"},
+                {"name": "embedding-only", "type": "text-embedding"},
+                {"model": "doubao-lite", "type": "llm"},
+            ]
+        }
+        mock_ssrf_get.return_value = response
+
+        result = provider_configuration.discover_custom_model_candidates(
+            ModelType.LLM,
+            {
+                "proxy_base_url": "https://hub.example.com/",
+                "proxy_api_key": "secret",
+                "catalog_path": "provider/models",
+                "timeout_ms": "2000",
+            },
+        )
+
+        mock_ssrf_get.assert_called_once_with(
+            "https://hub.example.com/provider/models",
+            headers={
+                "Accept": "application/json",
+                "Authorization": "Bearer secret",
+            },
+            timeout=2.0,
+        )
+        response.raise_for_status.assert_called_once_with()
+        assert result == [
+            {"model": "doubao-lite", "model_type": "llm", "label": "doubao-lite"},
+            {"model": "doubao-seed-2.0-pro", "model_type": "llm", "label": "Doubao Seed 2.0 Pro"},
+        ]
+
+    @patch("core.entities.provider_configuration.ssrf_proxy.get")
+    def test_discover_custom_model_candidates_should_reject_non_list_payload(self, mock_ssrf_get, provider_configuration):
+        response = Mock()
+        response.json.return_value = {"data": {"model": "not-a-list"}}
+        mock_ssrf_get.return_value = response
+
+        with pytest.raises(ValueError, match="must contain a model list"):
+            provider_configuration.discover_custom_model_candidates(
+                ModelType.LLM,
+                {
+                    "endpoint_url": "https://hub.example.com",
+                    "api_key": "secret",
+                },
+            )

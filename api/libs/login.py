@@ -154,9 +154,14 @@ def login_required[R](func: Callable[..., R]) -> Callable[..., R | Response]:
             unauthorized_response: Response = _get_login_manager().unauthorized()
             return unauthorized_response
         g._login_user = user
-        # we put csrf validation here for less conflicts
-        # TODO: maybe find a better place for it.
-        check_csrf_token(request, user.id)
+        # CSRF protection is only needed for state-changing methods. Enforcing
+        # it on safe reads like GET/HEAD breaks server-side profile hydration
+        # because the internal fetch path does not originate from a browser
+        # request with matching header state.
+        if request.method not in ("GET", "HEAD"):
+            # we put csrf validation here for less conflicts
+            # TODO: maybe find a better place for it.
+            check_csrf_token(request, user.id)
         return current_app.ensure_sync(func)(*args, **kwargs)
 
     return decorated_view
