@@ -20,6 +20,7 @@ import {
 import {
   memo,
   useCallback,
+  useMemo,
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -45,6 +46,12 @@ const AddCustomModel = ({
   const [open, setOpen] = useState(false)
   const canAddedModels = useCanAddedModels(provider)
   const noModels = !canAddedModels.length
+  const supportsModelDiscovery = useMemo(() => {
+    const variables = new Set((provider.model_credential_schema?.credential_form_schemas || []).map(schema => schema.variable))
+    const hasBaseUrl = variables.has('proxy_base_url') || variables.has('endpoint_url')
+    const hasApiKey = variables.has('proxy_api_key') || variables.has('api_key') || variables.has('openai_api_key')
+    return hasBaseUrl && hasApiKey
+  }, [provider.model_credential_schema])
   const { canUseCredential, canCreateCredential } = useCredentialPermissions()
   const {
     handleOpenModal: handleOpenModalForAddNewCustomModel,
@@ -70,9 +77,11 @@ const AddCustomModel = ({
   )
   const notAllowCustomCredential = provider.allow_custom_token === false
   const renderTrigger = useCallback((open?: boolean, onClick?: () => void) => {
-    const disabled = noModels
+    const disabled = supportsModelDiscovery
       ? !canCreateCredential
-      : !canUseCredential && !canCreateCredential
+      : noModels
+        ? !canCreateCredential
+        : !canUseCredential && !canCreateCredential
     const item = (
       <Button
         variant="ghost"
@@ -85,7 +94,7 @@ const AddCustomModel = ({
           disabled && 'cursor-not-allowed opacity-50',
         )}
       >
-        <span className="mr-1 i-ri-add-circle-fill size-3.5" />
+        <span className="i-ri-add-circle-fill mr-1 size-3.5" />
         {t('modelProvider.addModel', { ns: 'common' })}
       </Button>
     )
@@ -98,7 +107,14 @@ const AddCustomModel = ({
       )
     }
     return item
-  }, [canCreateCredential, canUseCredential, t, notAllowCustomCredential, noModels])
+  }, [canCreateCredential, canUseCredential, t, notAllowCustomCredential, noModels, supportsModelDiscovery])
+
+  if (supportsModelDiscovery) {
+    return renderTrigger(
+      false,
+      notAllowCustomCredential || !canCreateCredential ? undefined : handleOpenModalForAddNewCustomModel,
+    )
+  }
 
   if (noModels) {
     return renderTrigger(false, notAllowCustomCredential || !canCreateCredential ? undefined : handleOpenModalForAddNewCustomModel)
@@ -162,7 +178,7 @@ const AddCustomModel = ({
                   handleOpenModalForAddNewCustomModel()
                 }}
               >
-                <span className="mr-1 i-ri-add-line size-4" />
+                <span className="i-ri-add-line mr-1 size-4" />
                 {t('modelProvider.auth.addNewModel', { ns: 'common' })}
               </div>
             )

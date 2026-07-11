@@ -92,6 +92,32 @@ describe('AddCustomModel', () => {
     expect(mockHandleOpenModalForAddNewCustomModel).toHaveBeenCalled()
   })
 
+  it('should open model discovery directly when saved models already exist', () => {
+    mockCanAddedModels = [{ model: 'doubao-seed-1-6', model_type: 'llm' }]
+    const discoverableProvider = {
+      ...mockProvider,
+      model_credential_schema: {
+        credential_form_schemas: [
+          { variable: 'endpoint_url' },
+          { variable: 'api_key' },
+        ],
+      },
+    } as unknown as ModelProvider
+
+    render(
+      <AddCustomModel
+        provider={discoverableProvider}
+        configurationMethod={ConfigurationMethodEnum.customizableModel}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /modelProvider.addModel/i }))
+
+    expect(mockHandleOpenModalForAddNewCustomModel).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('popover-trigger')).not.toBeInTheDocument()
+    expect(mockHandleOpenModalForAddCustomModelToModelList).not.toHaveBeenCalled()
+  })
+
   it('should show models list when models are available', () => {
     mockCanAddedModels = [{ model: 'gpt-4', model_type: 'llm' }]
     render(
