@@ -480,28 +480,78 @@ describe('ModelModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'common.operation.add' }))
 
     await waitFor(() => {
-      expect(mockHandlers.handleSaveModelCredentials).toHaveBeenCalledWith([
-        {
-          credentials: {
-            proxy_base_url: 'https://hub.example.com',
-            proxy_api_key: 'secret',
-            catalog_path: '/provider/models',
-          },
-          name: 'Hub Auth',
+      expect(mockHandlers.handleSaveModelCredentials).toHaveBeenCalledWith({
+        credentials: {
+          proxy_base_url: 'https://hub.example.com',
+          proxy_api_key: 'secret',
+          catalog_path: '/provider/models',
+        },
+        name: 'Hub Auth',
+        models: [
+          { model: 'doubao-seed-2.0-pro', model_type: ModelTypeEnum.textGeneration },
+          { model: 'doubao-lite', model_type: ModelTypeEnum.textGeneration },
+        ],
+      })
+    })
+  })
+
+  it('should reuse a saved credential without asking for the link and key again', async () => {
+    mockHandlers.discoverProviderModels.mockResolvedValue({
+      data: [
+        { model: 'doubao-seed-2.0-pro', model_type: ModelTypeEnum.textGeneration },
+        { model: 'deepseek-v3', model_type: ModelTypeEnum.textGeneration },
+      ],
+    })
+    const provider = createProvider({
+      configurate_methods: [ConfigurationMethodEnum.customizableModel],
+      custom_configuration: {
+        status: CustomConfigurationStatusEnum.active,
+        custom_models: [{
           model: 'doubao-seed-2.0-pro',
           model_type: ModelTypeEnum.textGeneration,
-        },
-        {
-          credentials: {
-            proxy_base_url: 'https://hub.example.com',
-            proxy_api_key: 'secret',
-            catalog_path: '/provider/models',
-          },
-          name: 'Hub Auth',
-          model: 'doubao-lite',
-          model_type: ModelTypeEnum.textGeneration,
-        },
-      ])
+          current_credential_id: 'saved-credential',
+          current_credential_name: 'Saved Proxy',
+        }],
+      },
+      model_credential_schema: {
+        model: { label: createI18n('Model Name'), placeholder: createI18n('Please enter model name') },
+        credential_form_schemas: [
+          { variable: 'endpoint_url', type: 'text-input' } as unknown as CredentialFormSchema,
+          { variable: 'api_key', type: 'secret-input' } as unknown as CredentialFormSchema,
+        ],
+      },
+    })
+
+    renderModal({
+      configurateMethod: ConfigurationMethodEnum.customizableModel,
+      mode: ModelModalModeEnum.configCustomModel,
+      provider,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'common.modelProvider.auth.fetchModels' }))
+
+    await waitFor(() => {
+      expect(mockHandlers.discoverProviderModels).toHaveBeenCalledWith({
+        credentials: {},
+        model_type: ModelTypeEnum.textGeneration,
+        source_model: 'doubao-seed-2.0-pro',
+        source_model_type: ModelTypeEnum.textGeneration,
+        source_credential_id: 'saved-credential',
+      })
+    })
+    expect(screen.queryByRole('checkbox', { name: /doubao-seed-2.0-pro/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /deepseek-v3/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'common.operation.add' }))
+
+    await waitFor(() => {
+      expect(mockHandlers.handleSaveModelCredentials).toHaveBeenCalledWith({
+        credentials: {},
+        name: 'Saved Proxy',
+        models: [{ model: 'deepseek-v3', model_type: ModelTypeEnum.textGeneration }],
+        source_model: 'doubao-seed-2.0-pro',
+        source_model_type: ModelTypeEnum.textGeneration,
+        source_credential_id: 'saved-credential',
+      })
     })
   })
 })

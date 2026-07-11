@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -224,6 +224,69 @@ class TestModelProviderServiceDelegation:
                 provider_method.assert_called_once_with(provider_call_kwargs)
         if method_name == "get_provider_credential":
             assert result == {"token": "abc"}
+
+    def test_create_model_credentials_should_reuse_one_credential_submission(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        service = ModelProviderService()
+        provider_configuration = MagicMock()
+        monkeypatch.setattr(service, "_get_provider_configuration", MagicMock(return_value=provider_configuration))
+        credentials = {"endpoint_url": "https://proxy.example.com/v1", "api_key": "secret"}
+
+        service.create_model_credentials(
+            tenant_id="tenant-1",
+            provider="new-api",
+            models=[(ModelType.LLM, "model-a"), (ModelType.LLM, "model-b")],
+            credentials=credentials,
+            credential_name="Proxy",
+        )
+
+        assert provider_configuration.create_custom_model_credential.call_args_list == [
+            call(
+                model_type=ModelType.LLM,
+                model="model-a",
+                credentials=credentials,
+                credential_name="Proxy",
+            ),
+            call(
+                model_type=ModelType.LLM,
+                model="model-b",
+                credentials=credentials,
+                credential_name="Proxy",
+            ),
+        ]
+
+    def test_create_model_credentials_should_reuse_stored_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        service = ModelProviderService()
+        provider_configuration = MagicMock()
+        provider_configuration.get_custom_model_credentials_for_reuse.return_value = (
+            {"endpoint_url": "https://proxy.example.com/v1", "api_key": "secret"},
+            "Saved Proxy",
+        )
+        monkeypatch.setattr(service, "_get_provider_configuration", MagicMock(return_value=provider_configuration))
+
+        service.create_model_credentials(
+            tenant_id="tenant-1",
+            provider="new-api",
+            models=[(ModelType.LLM, "model-b")],
+            credentials={},
+            credential_name=None,
+            source_model="model-a",
+            source_model_type=ModelType.LLM,
+            source_credential_id="credential-1",
+        )
+
+        provider_configuration.get_custom_model_credentials_for_reuse.assert_called_once_with(
+            model_type=ModelType.LLM,
+            model="model-a",
+            credential_id="credential-1",
+        )
+        provider_configuration.create_custom_model_credential.assert_called_once_with(
+            model_type=ModelType.LLM,
+            model="model-b",
+            credentials={"endpoint_url": "https://proxy.example.com/v1", "api_key": "secret"},
+            credential_name="Saved Proxy",
+        )
 
     @pytest.mark.parametrize(
         ("method_name", "method_kwargs", "provider_method_name", "expected_kwargs", "provider_return"),

@@ -965,6 +965,40 @@ class ProviderConfiguration(BaseModel):
                 }
         return None
 
+    def get_custom_model_credentials_for_reuse(
+        self, model_type: ModelType, model: str, credential_id: str
+    ) -> tuple[dict[str, Any], str | None]:
+        """Load and decrypt a stored model credential for server-side reuse."""
+        with Session(db.engine) as session:
+            stmt = select(ProviderModelCredential).where(
+                ProviderModelCredential.id == credential_id,
+                ProviderModelCredential.tenant_id == self.tenant_id,
+                ProviderModelCredential.provider_name.in_(self._get_provider_names()),
+                ProviderModelCredential.model_name == model,
+                ProviderModelCredential.model_type == model_type,
+            )
+            credential_record = session.execute(stmt).scalar_one_or_none()
+
+        if not credential_record or not credential_record.encrypted_config:
+            raise ValueError("Stored model credential not found.")
+
+        try:
+            credentials = json.loads(credential_record.encrypted_config)
+        except JSONDecodeError as error:
+            raise ValueError("Stored model credential is invalid.") from error
+
+        secret_variables = self.extract_secret_variables(
+            self.provider.model_credential_schema.credential_form_schemas
+            if self.provider.model_credential_schema
+            else []
+        )
+        for variable in secret_variables:
+            value = credentials.get(variable)
+            if isinstance(value, str) and value:
+                credentials[variable] = encrypter.decrypt_token(tenant_id=self.tenant_id, token=value)
+
+        return credentials, credential_record.credential_name
+
     def validate_custom_model_credentials(
         self,
         model_type: ModelType,

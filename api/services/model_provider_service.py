@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -171,6 +171,24 @@ class ModelProviderService:
             credentials=dict(credentials),
         )
 
+    def discover_custom_models_from_credential(
+        self,
+        tenant_id: str,
+        provider: str,
+        model_type: ModelType,
+        source_model: str,
+        source_model_type: ModelType,
+        source_credential_id: str,
+    ) -> list[dict[str, str]]:
+        """Discover models by reusing a stored credential without exposing it to the client."""
+        provider_configuration = self._get_provider_configuration(tenant_id, provider)
+        credentials, _ = provider_configuration.get_custom_model_credentials_for_reuse(
+            model_type=source_model_type,
+            model=source_model,
+            credential_id=source_credential_id,
+        )
+        return provider_configuration.discover_custom_model_candidates(model_type=model_type, credentials=credentials)
+
     def get_provider_available_credentials(self, tenant_id: str, provider: str, user: "Account | None" = None):
         return self._get_provider_manager(tenant_id).get_provider_available_credentials(
             tenant_id=tenant_id,
@@ -341,6 +359,34 @@ class ModelProviderService:
             credentials=credentials,
             credential_name=credential_name,
         )
+
+    def create_model_credentials(
+        self,
+        tenant_id: str,
+        provider: str,
+        models: Sequence[tuple[ModelType, str]],
+        credentials: dict[str, Any],
+        credential_name: str | None,
+        source_model: str | None = None,
+        source_model_type: ModelType | None = None,
+        source_credential_id: str | None = None,
+    ) -> None:
+        """Create multiple custom models from one shared credential submission."""
+        provider_configuration = self._get_provider_configuration(tenant_id, provider)
+        if source_model and source_model_type and source_credential_id:
+            credentials, source_credential_name = provider_configuration.get_custom_model_credentials_for_reuse(
+                model_type=source_model_type,
+                model=source_model,
+                credential_id=source_credential_id,
+            )
+            credential_name = credential_name or source_credential_name
+        for model_type, model in models:
+            provider_configuration.create_custom_model_credential(
+                model_type=model_type,
+                model=model,
+                credentials=credentials.copy(),
+                credential_name=credential_name,
+            )
 
     def update_model_credential(
         self,

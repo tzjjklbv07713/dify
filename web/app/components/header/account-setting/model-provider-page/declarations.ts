@@ -314,6 +314,15 @@ export type ModelCredentialPayload = {
   credential_id?: string
 }
 
+export type ModelCredentialsBatchPayload = {
+  models: Pick<ModelCredentialPayload, 'model' | 'model_type'>[]
+  credentials: Record<string, unknown>
+  name?: string
+  source_model?: string
+  source_model_type?: ModelTypeEnum
+  source_credential_id?: string
+}
+
 export type DiscoveredModel = {
   model: string
   model_type: ModelTypeEnum

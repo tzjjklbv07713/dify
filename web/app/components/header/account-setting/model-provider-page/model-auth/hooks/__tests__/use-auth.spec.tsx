@@ -18,6 +18,7 @@ const mockActiveProviderCredential = vi.fn()
 const mockActiveModelCredential = vi.fn()
 const mockAddProviderCredential = vi.fn()
 const mockAddModelCredential = vi.fn()
+const mockAddModelCredentials = vi.fn()
 const mockEditProviderCredential = vi.fn()
 const mockEditModelCredential = vi.fn()
 
@@ -48,6 +49,7 @@ vi.mock('@/service/use-models', () => ({
 
 vi.mock('../use-auth-service', () => ({
   useAuthService: () => ({
+    addModelCredentials: mockAddModelCredentials,
     getDeleteCredentialService: (isModel: boolean) => (isModel ? mockDeleteModelCredential : mockDeleteProviderCredential),
     getActiveCredentialService: (isModel: boolean) => (isModel ? mockActiveModelCredential : mockActiveProviderCredential),
     getEditCredentialService: (isModel: boolean) => (isModel ? mockEditModelCredential : mockEditProviderCredential),
@@ -94,6 +96,7 @@ describe('useAuth', () => {
     mockActiveModelCredential.mockResolvedValue({ result: 'success' })
     mockAddProviderCredential.mockResolvedValue({ result: 'success' })
     mockAddModelCredential.mockResolvedValue({ result: 'success' })
+    mockAddModelCredentials.mockResolvedValue({ result: 'success' })
     mockEditProviderCredential.mockResolvedValue({ result: 'success' })
     mockEditModelCredential.mockResolvedValue({ result: 'success' })
   })
@@ -233,20 +236,22 @@ describe('useAuth', () => {
     expect(mockAddProviderCredential).toHaveBeenCalledWith({ api_key: 'first' })
   })
 
-  it('should add selected model credentials sequentially and refresh once', async () => {
-    mockAddModelCredential.mockResolvedValue({ result: 'success' })
-    const payloads = [
-      { credentials: { api_key: 'secret' }, model: 'model-a', model_type: ModelTypeEnum.textGeneration },
-      { credentials: { api_key: 'secret' }, model: 'model-b', model_type: ModelTypeEnum.textGeneration },
-    ]
+  it('should add selected model credentials in one request and refresh once', async () => {
+    const payload = {
+      credentials: { api_key: 'secret' },
+      models: [
+        { model: 'model-a', model_type: ModelTypeEnum.textGeneration },
+        { model: 'model-b', model_type: ModelTypeEnum.textGeneration },
+      ],
+    }
     const { result } = renderHook(() => useAuth(provider, ConfigurationMethodEnum.customizableModel), { wrapper: createWrapper })
 
     await act(async () => {
-      await result.current.handleSaveModelCredentials(payloads)
+      await result.current.handleSaveModelCredentials(payload)
     })
 
-    expect(mockAddModelCredential).toHaveBeenNthCalledWith(1, payloads[0])
-    expect(mockAddModelCredential).toHaveBeenNthCalledWith(2, payloads[1])
+    expect(mockAddModelCredentials).toHaveBeenCalledTimes(1)
+    expect(mockAddModelCredentials).toHaveBeenCalledWith(payload)
     expect(mockHandleRefreshModel).toHaveBeenCalledTimes(1)
     expect(mockHandleRefreshModel).toHaveBeenCalledWith(provider, undefined, true)
   })

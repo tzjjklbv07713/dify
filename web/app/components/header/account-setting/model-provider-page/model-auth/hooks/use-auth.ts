@@ -1,4 +1,4 @@
-import type { ConfigurationMethodEnum, Credential, CustomConfigurationModelFixedFields, CustomModel, ModelCredentialPayload, ModelModalModeEnum, ModelProvider } from '../../declarations'
+import type { ConfigurationMethodEnum, Credential, CustomConfigurationModelFixedFields, CustomModel, ModelCredentialsBatchPayload, ModelModalModeEnum, ModelProvider } from '../../declarations'
 import { toast } from '@langgenius/dify-ui/toast'
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -24,7 +24,7 @@ export const useAuth = (provider: ModelProvider, configurationMethod: Configurat
 } = {}) => {
   const { isModelCredential, onUpdate, onRemove, mode } = extra
   const { t } = useTranslation()
-  const { getDeleteCredentialService, getActiveCredentialService, getEditCredentialService, getAddCredentialService } = useAuthService(provider.provider)
+  const { addModelCredentials, getDeleteCredentialService, getActiveCredentialService, getEditCredentialService, getAddCredentialService } = useAuthService(provider.provider)
   const { mutateAsync: deleteModelService } = useDeleteModel(provider.provider)
   const handleOpenModelModal = useModelModalHandler()
   const { handleRefreshModel } = useRefreshModel()
@@ -172,26 +172,21 @@ export const useAuth = (provider: ModelProvider, configurationMethod: Configurat
       handleSetDoingAction(false)
     }
   }, [t, handleSetDoingAction, getEditCredentialService, getAddCredentialService])
-  const handleSaveModelCredentials = useCallback(async (payloads: ModelCredentialPayload[]) => {
-    if (doingActionRef.current || !payloads.length)
+  const handleSaveModelCredentials = useCallback(async (payload: ModelCredentialsBatchPayload) => {
+    if (doingActionRef.current || !payload.models.length)
       return
     try {
       handleSetDoingAction(true)
-      const addModelCredential = getAddCredentialService(true) as (
-        payload: ModelCredentialPayload,
-      ) => Promise<{ result?: string }>
-      for (const payload of payloads) {
-        const result = await addModelCredential(payload)
-        if (result.result !== 'success')
-          return
-      }
+      const result = await addModelCredentials(payload)
+      if (result.result !== 'success')
+        return
       toast.success(t('actionMsg.modifiedSuccessfully', { ns: 'common' }))
       handleRefreshModel(provider, undefined, true)
     }
     finally {
       handleSetDoingAction(false)
     }
-  }, [getAddCredentialService, handleRefreshModel, handleSetDoingAction, provider, t])
+  }, [addModelCredentials, handleRefreshModel, handleSetDoingAction, provider, t])
   const handleOpenModal = useCallback((credential?: Credential, model?: CustomModel) => {
     handleOpenModelModal(provider, configurationMethod, currentCustomConfigurationModelFixedFields, {
       isModelCredential,

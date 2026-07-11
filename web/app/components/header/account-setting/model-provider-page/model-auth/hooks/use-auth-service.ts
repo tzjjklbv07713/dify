@@ -6,6 +6,7 @@ import {
   useActiveModelCredential,
   useActiveProviderCredential,
   useAddModelCredential,
+  useAddModelCredentials,
   useAddProviderCredential,
   useDeleteModelCredential,
   useDeleteProviderCredential,
@@ -28,6 +29,7 @@ export const useAuthService = (provider: string) => {
   const { mutateAsync: activeProviderCredential } = useActiveProviderCredential(provider)
 
   const { mutateAsync: addModelCredential } = useAddModelCredential(provider)
+  const { mutateAsync: addModelCredentials } = useAddModelCredentials(provider)
   const { mutateAsync: activeModelCredential } = useActiveModelCredential(provider)
   const { mutateAsync: deleteModelCredential } = useDeleteModelCredential(provider)
   const { mutateAsync: editModelCredential } = useEditModelCredential(provider)
@@ -49,6 +51,7 @@ export const useAuthService = (provider: string) => {
   }, [activeModelCredential, activeProviderCredential])
 
   return {
+    addModelCredentials,
     getAddCredentialService,
     getEditCredentialService,
     getDeleteCredentialService,

@@ -12,6 +12,7 @@ vi.mock('@/service/use-models', () => ({
   useDeleteProviderCredential: vi.fn(),
   useActiveProviderCredential: vi.fn(),
   useAddModelCredential: vi.fn(),
+  useAddModelCredentials: vi.fn(),
   useEditModelCredential: vi.fn(),
   useDeleteModelCredential: vi.fn(),
   useActiveModelCredential: vi.fn(),
@@ -25,6 +26,7 @@ const {
   useDeleteProviderCredential,
   useActiveProviderCredential,
   useAddModelCredential,
+  useAddModelCredentials,
   useEditModelCredential,
   useDeleteModelCredential,
   useActiveModelCredential,
@@ -46,6 +48,7 @@ describe('useAuthService hooks', () => {
     vi.mocked(useDeleteProviderCredential).mockReturnValue(mockMutationReturn as unknown as ReturnType<typeof useDeleteProviderCredential>)
     vi.mocked(useActiveProviderCredential).mockReturnValue(mockMutationReturn as unknown as ReturnType<typeof useActiveProviderCredential>)
     vi.mocked(useAddModelCredential).mockReturnValue(mockMutationReturn as unknown as ReturnType<typeof useAddModelCredential>)
+    vi.mocked(useAddModelCredentials).mockReturnValue(mockMutationReturn as unknown as ReturnType<typeof useAddModelCredentials>)
     vi.mocked(useEditModelCredential).mockReturnValue(mockMutationReturn as unknown as ReturnType<typeof useEditModelCredential>)
     vi.mocked(useDeleteModelCredential).mockReturnValue(mockMutationReturn as unknown as ReturnType<typeof useDeleteModelCredential>)
     vi.mocked(useActiveModelCredential).mockReturnValue(mockMutationReturn as unknown as ReturnType<typeof useActiveModelCredential>)
@@ -87,6 +90,7 @@ describe('useAuthService hooks', () => {
 
     // Model services
     expect(result.current.getAddCredentialService(true)).toBe(vi.mocked(useAddModelCredential).mock.results[0]!.value.mutateAsync)
+    expect(result.current.addModelCredentials).toBe(vi.mocked(useAddModelCredentials).mock.results[0]!.value.mutateAsync)
     expect(result.current.getEditCredentialService(true)).toBe(vi.mocked(useEditModelCredential).mock.results[0]!.value.mutateAsync)
     expect(result.current.getDeleteCredentialService(true)).toBe(vi.mocked(useDeleteModelCredential).mock.results[0]!.value.mutateAsync)
     expect(result.current.getActiveCredentialService(true)).toBe(vi.mocked(useActiveModelCredential).mock.results[0]!.value.mutateAsync)

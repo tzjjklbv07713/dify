@@ -1,6 +1,7 @@
 import type {
   DiscoveredModel,
   ModelCredential,
+  ModelCredentialsBatchPayload,
   ModelCredentialPayload,
   ModelItem,
   ModelLoadBalancingConfig,
@@ -156,11 +157,22 @@ export const useUpdateModelLoadBalancingConfig = (provider: string) => {
   })
 }
 
+export const useAddModelCredentials = (provider: string) => {
+  return useMutation({
+    mutationFn: (data: ModelCredentialsBatchPayload) => post<{ result: string }>(`/workspaces/current/model-providers/${provider}/models/credentials/batch`, {
+      body: data,
+    }),
+  })
+}
+
 export const useDiscoverProviderModels = (provider: string) => {
   return useMutation({
     mutationFn: (data: {
       model_type: ModelTypeEnum
       credentials: Record<string, unknown>
+      source_model?: string
+      source_model_type?: ModelTypeEnum
+      source_credential_id?: string
     }) => post<{ data: DiscoveredModel[] }>(`/workspaces/current/model-providers/${provider}/models/discover`, {
       body: data,
     }),

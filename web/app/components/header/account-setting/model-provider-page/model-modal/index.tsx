@@ -127,6 +127,21 @@ const ModelModal: FC<ModelModalProps> = ({
   const [selectedDiscoveredModelKeys, setSelectedDiscoveredModelKeys] = useState<string[]>([])
   const [discoverError, setDiscoverError] = useState('')
   const { mutateAsync: discoverProviderModels, isPending: isDiscoveringModels } = useDiscoverProviderModels(provider.provider)
+  const reusableModelCredential = useMemo(() => {
+    for (const customModel of provider.custom_configuration.custom_models || []) {
+      const credentialId = customModel.current_credential_id
+        || customModel.available_model_credentials?.find(item => !item.not_allowed_to_use)?.credential_id
+      if (credentialId) {
+        return {
+          credentialId,
+          credentialName: customModel.current_credential_name,
+          model: customModel.model,
+          modelType: customModel.model_type,
+        }
+      }
+    }
+    return undefined
+  }, [provider.custom_configuration.custom_models])
   const isEditMode = !!credential && !!Object.keys(formSchemasValue || {}).filter((key) => {
     return key !== '__model_name' && key !== '__model_type' && !!formValues[key]
   }).length && canManageCredential
@@ -197,13 +212,13 @@ const ModelModal: FC<ModelModalProps> = ({
         __model_type: modelContext.model_type,
       }
     }
-    const {
-      isCheckValidated,
-      values,
-    } = formRef2.current?.getFormValues({
-      needCheckValidatedValues: true,
-      needTransformWhenSecretFieldIsPristine: true,
-    }) || { isCheckValidated: false, values: {} }
+    const credentialFormResult = reusableModelCredential
+      ? { isCheckValidated: true, values: {} }
+      : formRef2.current?.getFormValues({
+          needCheckValidatedValues: true,
+          needTransformWhenSecretFieldIsPristine: true,
+        }) || { isCheckValidated: false, values: {} }
+    const { isCheckValidated, values } = credentialFormResult
     if (!isCheckValidated || !modelNameAndTypeIsCheckValidated)
       return
 
@@ -223,12 +238,17 @@ const ModelModal: FC<ModelModalProps> = ({
         return
 
       if (selectedDiscoveredModels.length) {
-        await handleSaveModelCredentials(selectedDiscoveredModels.map(discoveredModel => ({
+        await handleSaveModelCredentials({
           credentials: rest,
-          name: __authorization_name__,
-          model: discoveredModel.model,
-          model_type: discoveredModel.model_type,
-        })))
+          name: __authorization_name__ || reusableModelCredential?.credentialName,
+          models: selectedDiscoveredModels.map(discoveredModel => ({
+            model: discoveredModel.model,
+            model_type: discoveredModel.model_type,
+          })),
+          source_model: reusableModelCredential?.model,
+          source_model_type: reusableModelCredential?.modelType,
+          source_credential_id: reusableModelCredential?.credentialId,
+        })
       }
       else {
         await handleSaveCredential({
@@ -248,7 +268,7 @@ const ModelModal: FC<ModelModalProps> = ({
       })
     }
     onSave(values)
-  }, [mode, selectedCredential, model, currentCustomConfigurationModelFixedFields, canUseCredential, canCreateCredential, canManageCredential, onSave, handleActiveCredential, onCancel, handleSaveCredential, handleSaveModelCredentials, credential, selectedDiscoveredModels])
+  }, [mode, selectedCredential, model, currentCustomConfigurationModelFixedFields, canUseCredential, canCreateCredential, canManageCredential, onSave, handleActiveCredential, onCancel, handleSaveCredential, handleSaveModelCredentials, credential, selectedDiscoveredModels, reusableModelCredential])
 
   const modalTitle = useMemo(() => {
     let label = t('modelProvider.auth.apiKeyModal.title', { ns: 'common' })
@@ -312,15 +332,17 @@ const ModelModal: FC<ModelModalProps> = ({
 
   const showCredentialLabel = useMemo(() => {
     if (mode === ModelModalModeEnum.configCustomModel)
-      return true
+      return !reusableModelCredential
     if (mode === ModelModalModeEnum.addCustomModelToModelList)
       return selectedCredential?.addNewCredential
-  }, [mode, selectedCredential])
+  }, [mode, reusableModelCredential, selectedCredential])
   const showCredentialForm = useMemo(() => {
+    if (mode === ModelModalModeEnum.configCustomModel && reusableModelCredential)
+      return false
     if (mode !== ModelModalModeEnum.addCustomModelToModelList)
       return true
     return selectedCredential?.addNewCredential
-  }, [mode, selectedCredential])
+  }, [mode, reusableModelCredential, selectedCredential])
   const saveButtonText = useMemo(() => {
     if (mode === ModelModalModeEnum.addCustomModelToModelList || mode === ModelModalModeEnum.configCustomModel)
       return t('operation.add', { ns: 'common' })
@@ -336,10 +358,12 @@ const ModelModal: FC<ModelModalProps> = ({
   }, [handleConfirmDelete, onCancel])
 
   const handleDiscoverModels = useCallback(async () => {
-    const credentialFormResult = formRef2.current?.getFormValues({
-      needCheckValidatedValues: true,
-      needTransformWhenSecretFieldIsPristine: true,
-    }) || { isCheckValidated: false, values: {} }
+    const credentialFormResult = reusableModelCredential
+      ? { isCheckValidated: true, values: {} }
+      : formRef2.current?.getFormValues({
+          needCheckValidatedValues: true,
+          needTransformWhenSecretFieldIsPristine: true,
+        }) || { isCheckValidated: false, values: {} }
 
     if (!credentialFormResult.isCheckValidated)
       return
@@ -358,8 +382,16 @@ const ModelModal: FC<ModelModalProps> = ({
       const response = await discoverProviderModels({
         model_type: modelType,
         credentials,
+        source_model: reusableModelCredential?.model,
+        source_model_type: reusableModelCredential?.modelType,
+        source_credential_id: reusableModelCredential?.credentialId,
       })
-      const models = response.data || []
+      const existingModelKeys = new Set((provider.custom_configuration.custom_models || []).map(existingModel => (
+        `${existingModel.model_type}:${existingModel.model}`
+      )))
+      const models = (response.data || []).filter(discoveredModel => (
+        !existingModelKeys.has(getDiscoveredModelKey(discoveredModel))
+      ))
       setDiscoveredModels(models)
       if (!models.length) {
         const message = t('modelProvider.auth.fetchModelsEmpty', { ns: 'common' })
@@ -374,7 +406,7 @@ const ModelModal: FC<ModelModalProps> = ({
       setDiscoverError(message)
       toast.error(message)
     }
-  }, [discoverProviderModels, provider.supported_model_types, t])
+  }, [discoverProviderModels, getDiscoveredModelKey, provider.custom_configuration.custom_models, provider.supported_model_types, reusableModelCredential, t])
 
   const handleToggleDiscoveredModel = useCallback((selectedModel: DiscoveredModel) => {
     const selectedKey = getDiscoveredModelKey(selectedModel)
@@ -440,6 +472,15 @@ const ModelModal: FC<ModelModalProps> = ({
                   ref={formRef1}
                   onChange={handleModelNameAndTypeChange}
                 />
+                {
+                  reusableModelCredential && (
+                    <div className="mt-3 rounded-lg border border-divider-subtle bg-background-default-subtle px-3 py-2 system-xs-regular text-text-secondary">
+                      {t('modelProvider.auth.modelCredential', { ns: 'common' })}
+                      {`: ${reusableModelCredential.model}`}
+                      {reusableModelCredential.credentialName ? ` · ${reusableModelCredential.credentialName}` : ''}
+                    </div>
+                  )
+                }
                 {
                   supportsModelDiscovery && (
                     <div className="mt-3 rounded-xl border border-divider-subtle bg-background-default-subtle p-3">

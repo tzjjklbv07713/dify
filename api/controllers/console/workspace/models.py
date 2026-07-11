@@ -105,6 +105,20 @@ class ParserCreateCredential(ParserCredentialBase):
     credentials: dict[str, Any]
 
 
+class BatchModelCredentialItem(BaseModel):
+    model: str
+    model_type: ModelType
+
+
+class ParserCreateCredentialsBatch(BaseModel):
+    models: list[BatchModelCredentialItem] = Field(min_length=1)
+    name: str | None = Field(default=None, max_length=30)
+    credentials: dict[str, Any] = Field(default_factory=dict)
+    source_model: str | None = None
+    source_model_type: ModelType | None = None
+    source_credential_id: str | None = None
+
+
 class ParserUpdateCredential(ParserCredentialBase):
     credential_id: str
     credentials: dict[str, Any]
@@ -177,6 +191,8 @@ register_schema_models(
     ParserPostModels,
     ParserGetCredentials,
     ParserCreateCredential,
+    BatchModelCredentialItem,
+    ParserCreateCredentialsBatch,
     ParserUpdateCredential,
     ParserDeleteCredential,
     ParserParameter,
@@ -474,6 +490,33 @@ class ModelProviderModelCredentialApi(Resource):
         return "", 204
 
 
+@console_ns.route("/workspaces/current/model-providers/<path:provider>/models/credentials/batch")
+class ModelProviderModelCredentialBatchApi(Resource):
+    @console_ns.expect(console_ns.models[ParserCreateCredentialsBatch.__name__])
+    @console_ns.response(201, "Credentials created successfully", console_ns.models[SimpleResultResponse.__name__])
+    @setup_required
+    @login_required
+    @is_admin_or_owner_required
+    @rbac_permission_required(RBACResourceScope.WORKSPACE, RBACPermission.CREDENTIAL_CREATE, resource_required=False)
+    @account_initialization_required
+    @with_current_tenant_id
+    def post(self, tenant_id: str, provider: str):
+        args = ParserCreateCredentialsBatch.model_validate(console_ns.payload)
+
+        ModelProviderService().create_model_credentials(
+            tenant_id=tenant_id,
+            provider=provider,
+            models=[(item.model_type, item.model) for item in args.models],
+            credentials=args.credentials,
+            credential_name=args.name,
+            source_model=args.source_model,
+            source_model_type=args.source_model_type,
+            source_credential_id=args.source_credential_id,
+        )
+
+        return {"result": "success"}, 201
+
+
 @console_ns.route("/workspaces/current/model-providers/<path:provider>/models/credentials/switch")
 class ModelProviderModelCredentialSwitchApi(Resource):
     @console_ns.expect(console_ns.models[ParserSwitch.__name__])
@@ -550,7 +593,10 @@ class ParserValidate(BaseModel):
 
 class ParserDiscoverModels(BaseModel):
     model_type: ModelType
-    credentials: dict[str, Any]
+    credentials: dict[str, Any] = Field(default_factory=dict)
+    source_model: str | None = None
+    source_model_type: ModelType | None = None
+    source_credential_id: str | None = None
 
 
 class DiscoveredModelResponseItem(BaseModel):
@@ -625,12 +671,22 @@ class ModelProviderModelDiscoveryApi(Resource):
         args = ParserDiscoverModels.model_validate(console_ns.payload)
 
         model_provider_service = ModelProviderService()
-        models = model_provider_service.discover_custom_models(
-            tenant_id=tenant_id,
-            provider=provider,
-            model_type=args.model_type,
-            credentials=args.credentials,
-        )
+        if args.source_model and args.source_model_type and args.source_credential_id:
+            models = model_provider_service.discover_custom_models_from_credential(
+                tenant_id=tenant_id,
+                provider=provider,
+                model_type=args.model_type,
+                source_model=args.source_model,
+                source_model_type=args.source_model_type,
+                source_credential_id=args.source_credential_id,
+            )
+        else:
+            models = model_provider_service.discover_custom_models(
+                tenant_id=tenant_id,
+                provider=provider,
+                model_type=args.model_type,
+                credentials=args.credentials,
+            )
 
         return jsonable_encoder({"data": models})
 
