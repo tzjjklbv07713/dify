@@ -38,6 +38,7 @@ const mockState = vi.hoisted(() => ({
 
 const mockHandlers = vi.hoisted(() => ({
   handleSaveCredential: vi.fn(),
+  handleSaveModelCredentials: vi.fn(),
   handleConfirmDelete: vi.fn(),
   closeConfirmDelete: vi.fn(),
   openConfirmDelete: vi.fn(),
@@ -65,6 +66,7 @@ vi.mock('../../model-auth/hooks', () => ({
   }),
   useAuth: () => ({
     handleSaveCredential: mockHandlers.handleSaveCredential,
+    handleSaveModelCredentials: mockHandlers.handleSaveModelCredentials,
     handleConfirmDelete: mockHandlers.handleConfirmDelete,
     deleteCredentialId: mockState.deleteCredentialId,
     closeConfirmDelete: mockHandlers.closeConfirmDelete,
@@ -410,7 +412,7 @@ describe('ModelModal', () => {
     })
   })
 
-  it('should discover remote models and fill the selected model name', async () => {
+  it('should discover remote models and save the manually selected models', async () => {
     mockState.modelNameAndTypeFormSchemas = [{ variable: '__model_name', type: 'text-input' } as unknown as CredentialFormSchema]
     mockState.formSchemas = [
       { variable: 'proxy_base_url', type: 'text-input' } as unknown as CredentialFormSchema,
@@ -424,6 +426,15 @@ describe('ModelModal', () => {
       ],
     })
     mockFormState.responses = [
+      {
+        isCheckValidated: true,
+        values: {
+          __authorization_name__: 'Hub Auth',
+          proxy_base_url: 'https://hub.example.com',
+          proxy_api_key: 'secret',
+          catalog_path: '/provider/models',
+        },
+      },
       {
         isCheckValidated: true,
         values: {
@@ -464,9 +475,33 @@ describe('ModelModal', () => {
       })
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /Doubao Seed 2.0 Pro/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /Doubao Seed 2.0 Pro/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /Doubao Lite/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'common.operation.add' }))
 
-    expect(mockFormState.setFieldValue).toHaveBeenCalledWith('__model_name', 'doubao-seed-2.0-pro')
-    expect(mockFormState.setFieldValue).toHaveBeenCalledWith('__model_type', ModelTypeEnum.textGeneration)
+    await waitFor(() => {
+      expect(mockHandlers.handleSaveModelCredentials).toHaveBeenCalledWith([
+        {
+          credentials: {
+            proxy_base_url: 'https://hub.example.com',
+            proxy_api_key: 'secret',
+            catalog_path: '/provider/models',
+          },
+          name: 'Hub Auth',
+          model: 'doubao-seed-2.0-pro',
+          model_type: ModelTypeEnum.textGeneration,
+        },
+        {
+          credentials: {
+            proxy_base_url: 'https://hub.example.com',
+            proxy_api_key: 'secret',
+            catalog_path: '/provider/models',
+          },
+          name: 'Hub Auth',
+          model: 'doubao-lite',
+          model_type: ModelTypeEnum.textGeneration,
+        },
+      ])
+    })
   })
 })

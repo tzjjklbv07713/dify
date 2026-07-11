@@ -6,7 +6,10 @@ import re
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from json import JSONDecodeError
+from operator import itemgetter
 from typing import Any, override
+
+from httpx import HTTPStatusError, RequestError
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -1034,16 +1037,9 @@ class ProviderConfiguration(BaseModel):
         - or ``endpoint_url`` + ``api_key``
         with an optional ``catalog_path``.
         """
-        base_url = str(
-            credentials.get("proxy_base_url")
-            or credentials.get("endpoint_url")
-            or ""
-        ).strip().rstrip("/")
+        base_url = str(credentials.get("proxy_base_url") or credentials.get("endpoint_url") or "").strip().rstrip("/")
         api_key = str(
-            credentials.get("proxy_api_key")
-            or credentials.get("api_key")
-            or credentials.get("openai_api_key")
-            or ""
+            credentials.get("proxy_api_key") or credentials.get("api_key") or credentials.get("openai_api_key") or ""
         ).strip()
 
         if not base_url or not api_key:
@@ -1056,16 +1052,45 @@ class ProviderConfiguration(BaseModel):
         timeout_ms = int(credentials.get("timeout_ms", 15000) or 15000)
         timeout_seconds = min(max(timeout_ms, 1000), 120000) / 1000
 
-        response = ssrf_proxy.get(
-            f"{base_url}{catalog_path}",
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            },
-            timeout=timeout_seconds,
-        )
-        response.raise_for_status()
-        payload = response.json()
+        catalog_urls = [f"{base_url}{catalog_path}"]
+        openai_catalog_url = f"{base_url}/models" if base_url.endswith("/v1") else f"{base_url}/v1/models"
+        if openai_catalog_url not in catalog_urls:
+            catalog_urls.append(openai_catalog_url)
+
+        payload: Any = None
+        last_error: Exception | None = None
+        for catalog_url in catalog_urls:
+            try:
+                response = ssrf_proxy.get(
+                    catalog_url,
+                    headers={
+                        "Accept": "application/json",
+                        "Authorization": f"Bearer {api_key}",
+                    },
+                    timeout=timeout_seconds,
+                )
+                response.raise_for_status()
+                candidate_payload = response.json()
+                if isinstance(candidate_payload, dict):
+                    candidate_items = candidate_payload.get("models")
+                    if candidate_items is None:
+                        candidate_items = candidate_payload.get("data")
+                    if candidate_items is None:
+                        candidate_items = candidate_payload.get("items")
+                else:
+                    candidate_items = candidate_payload
+                if not isinstance(candidate_items, list):
+                    raise ValueError("Model discovery response must contain a model list.")
+                payload = candidate_payload
+                break
+            except (HTTPStatusError, RequestError, JSONDecodeError, ValueError) as error:
+                last_error = error
+
+        if payload is None:
+            raise ValueError(
+                "Unable to load models. Ensure the base URL exposes a JSON model catalog "
+                "or OpenAI-compatible /v1/models."
+            ) from last_error
 
         raw_items: Any
         if isinstance(payload, dict):
@@ -1090,8 +1115,9 @@ class ProviderConfiguration(BaseModel):
             if not model_name or model_name in seen_models:
                 continue
 
-            remote_model_type = str(item.get("type") or item.get("model_type") or model_type.value).strip()
-            if remote_model_type and remote_model_type != model_type.value:
+            remote_model_type = str(item.get("type") or item.get("model_type") or "").strip()
+            known_model_types = {candidate.value for candidate in ModelType}
+            if remote_model_type in known_model_types and remote_model_type != model_type.value:
                 continue
 
             discovered.append(
@@ -1103,7 +1129,7 @@ class ProviderConfiguration(BaseModel):
             )
             seen_models.add(model_name)
 
-        return sorted(discovered, key=lambda item: item["model"])
+        return sorted(discovered, key=itemgetter("model"))
 
     def create_custom_model_credential(
         self, model_type: ModelType, model: str, credentials: dict[str, Any], credential_name: str | None

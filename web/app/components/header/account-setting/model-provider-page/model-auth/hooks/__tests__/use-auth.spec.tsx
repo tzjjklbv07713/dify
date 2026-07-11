@@ -233,6 +233,24 @@ describe('useAuth', () => {
     expect(mockAddProviderCredential).toHaveBeenCalledWith({ api_key: 'first' })
   })
 
+  it('should add selected model credentials sequentially and refresh once', async () => {
+    mockAddModelCredential.mockResolvedValue({ result: 'success' })
+    const payloads = [
+      { credentials: { api_key: 'secret' }, model: 'model-a', model_type: ModelTypeEnum.textGeneration },
+      { credentials: { api_key: 'secret' }, model: 'model-b', model_type: ModelTypeEnum.textGeneration },
+    ]
+    const { result } = renderHook(() => useAuth(provider, ConfigurationMethodEnum.customizableModel), { wrapper: createWrapper })
+
+    await act(async () => {
+      await result.current.handleSaveModelCredentials(payloads)
+    })
+
+    expect(mockAddModelCredential).toHaveBeenNthCalledWith(1, payloads[0])
+    expect(mockAddModelCredential).toHaveBeenNthCalledWith(2, payloads[1])
+    expect(mockHandleRefreshModel).toHaveBeenCalledTimes(1)
+    expect(mockHandleRefreshModel).toHaveBeenCalledWith(provider, undefined, true)
+  })
+
   it('should forward modal open arguments', () => {
     const onUpdate = vi.fn()
     const fixedFields = {

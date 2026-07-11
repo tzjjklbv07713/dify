@@ -19,11 +19,13 @@ import {
   AlertDialogTitle,
 } from '@langgenius/dify-ui/alert-dialog'
 import { Button } from '@langgenius/dify-ui/button'
+import { Checkbox } from '@langgenius/dify-ui/checkbox'
 import {
   Dialog,
   DialogCloseButton,
   DialogContent,
 } from '@langgenius/dify-ui/dialog'
+import { toast } from '@langgenius/dify-ui/toast'
 import {
   memo,
   useCallback,
@@ -31,7 +33,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { toast } from '@langgenius/dify-ui/toast'
 import { useTranslation } from 'react-i18next'
 import Badge from '@/app/components/base/badge'
 import AuthForm from '@/app/components/base/form/form-scenarios/auth'
@@ -45,6 +46,7 @@ import {
 import ModelIcon from '@/app/components/header/account-setting/model-provider-page/model-icon'
 import { useCredentialPermissions } from '@/hooks/use-credential-permissions'
 import { useRenderI18nObject } from '@/hooks/use-i18n'
+import { useDiscoverProviderModels } from '@/service/use-models'
 import {
   ConfigurationMethodEnum,
   FormTypeEnum,
@@ -55,7 +57,6 @@ import {
 } from '../hooks'
 import { CredentialSelector } from '../model-auth'
 import { useModelFormSchemas } from '../model-auth/hooks'
-import { useDiscoverProviderModels } from '@/service/use-models'
 
 type ModelModalProps = {
   provider: ModelProvider
@@ -89,6 +90,7 @@ const ModelModal: FC<ModelModalProps> = ({
   } = useCredentialData(provider, providerFormSchemaPredefined, isModelCredential, credential, model)
   const {
     handleSaveCredential,
+    handleSaveModelCredentials,
     handleConfirmDelete,
     deleteCredentialId,
     closeConfirmDelete,
@@ -122,6 +124,7 @@ const ModelModal: FC<ModelModalProps> = ({
   const [selectedCredential, setSelectedCredential] = useState<Credential & { addNewCredential?: boolean } | undefined>()
   const formRef2 = useRef<FormRefObject>(null)
   const [discoveredModels, setDiscoveredModels] = useState<DiscoveredModel[]>([])
+  const [selectedDiscoveredModelKeys, setSelectedDiscoveredModelKeys] = useState<string[]>([])
   const [discoverError, setDiscoverError] = useState('')
   const { mutateAsync: discoverProviderModels, isPending: isDiscoveringModels } = useDiscoverProviderModels(provider.provider)
   const isEditMode = !!credential && !!Object.keys(formSchemasValue || {}).filter((key) => {
@@ -132,8 +135,17 @@ const ModelModal: FC<ModelModalProps> = ({
     const variables = new Set((provider.model_credential_schema?.credential_form_schemas || []).map(schema => schema.variable))
     const hasBaseUrl = variables.has('proxy_base_url') || variables.has('endpoint_url')
     const hasApiKey = variables.has('proxy_api_key') || variables.has('api_key') || variables.has('openai_api_key')
-    return mode === ModelModalModeEnum.configCustomModel && hasBaseUrl && hasApiKey
-  }, [mode, provider.model_credential_schema])
+    return mode === ModelModalModeEnum.configCustomModel && !credential && hasBaseUrl && hasApiKey
+  }, [credential, mode, provider.model_credential_schema])
+
+  const getDiscoveredModelKey = useCallback((discoveredModel: DiscoveredModel) => {
+    return `${discoveredModel.model_type}:${discoveredModel.model}`
+  }, [])
+
+  const selectedDiscoveredModels = useMemo(() => {
+    const selectedKeys = new Set(selectedDiscoveredModelKeys)
+    return discoveredModels.filter(discoveredModel => selectedKeys.has(getDiscoveredModelKey(discoveredModel)))
+  }, [discoveredModels, getDiscoveredModelKey, selectedDiscoveredModelKeys])
 
   const handleSave = useCallback(async () => {
     if (mode === ModelModalModeEnum.addCustomModelToModelList && selectedCredential && !selectedCredential?.addNewCredential) {
@@ -151,8 +163,15 @@ const ModelModal: FC<ModelModalProps> = ({
 
     let modelNameAndTypeIsCheckValidated = true
     let modelNameAndTypeValues: Record<string, any> = {}
+    const firstSelectedDiscoveredModel = selectedDiscoveredModels.at(0)
 
-    if (mode === ModelModalModeEnum.configCustomModel) {
+    if (mode === ModelModalModeEnum.configCustomModel && firstSelectedDiscoveredModel) {
+      modelNameAndTypeValues = {
+        __model_name: firstSelectedDiscoveredModel.model,
+        __model_type: firstSelectedDiscoveredModel.model_type,
+      }
+    }
+    else if (mode === ModelModalModeEnum.configCustomModel) {
       const formResult = formRef1.current?.getFormValues({
         needCheckValidatedValues: true,
       }) || { isCheckValidated: false, values: {} }
@@ -203,13 +222,23 @@ const ModelModal: FC<ModelModalProps> = ({
       if (!__model_name || !__model_type)
         return
 
-      await handleSaveCredential({
-        credential_id: credential?.credential_id,
-        credentials: rest,
-        name: __authorization_name__,
-        model: __model_name,
-        model_type: __model_type,
-      })
+      if (selectedDiscoveredModels.length) {
+        await handleSaveModelCredentials(selectedDiscoveredModels.map(discoveredModel => ({
+          credentials: rest,
+          name: __authorization_name__,
+          model: discoveredModel.model,
+          model_type: discoveredModel.model_type,
+        })))
+      }
+      else {
+        await handleSaveCredential({
+          credential_id: credential?.credential_id,
+          credentials: rest,
+          name: __authorization_name__,
+          model: __model_name,
+          model_type: __model_type,
+        })
+      }
     }
     else {
       await handleSaveCredential({
@@ -219,7 +248,7 @@ const ModelModal: FC<ModelModalProps> = ({
       })
     }
     onSave(values)
-  }, [mode, selectedCredential, model, currentCustomConfigurationModelFixedFields, canUseCredential, canCreateCredential, canManageCredential, onSave, handleActiveCredential, onCancel, handleSaveCredential, credential])
+  }, [mode, selectedCredential, model, currentCustomConfigurationModelFixedFields, canUseCredential, canCreateCredential, canManageCredential, onSave, handleActiveCredential, onCancel, handleSaveCredential, handleSaveModelCredentials, credential, selectedDiscoveredModels])
 
   const modalTitle = useMemo(() => {
     let label = t('modelProvider.auth.apiKeyModal.title', { ns: 'common' })
@@ -325,6 +354,7 @@ const ModelModal: FC<ModelModalProps> = ({
     try {
       setDiscoverError('')
       setDiscoveredModels([])
+      setSelectedDiscoveredModelKeys([])
       const response = await discoverProviderModels({
         model_type: modelType,
         credentials,
@@ -340,16 +370,28 @@ const ModelModal: FC<ModelModalProps> = ({
     catch (error: any) {
       const message = error?.message || t('api.actionFailed', { ns: 'common' })
       setDiscoveredModels([])
+      setSelectedDiscoveredModelKeys([])
       setDiscoverError(message)
       toast.error(message)
     }
   }, [discoverProviderModels, provider.supported_model_types, t])
 
-  const handleSelectDiscoveredModel = useCallback((selectedModel: DiscoveredModel) => {
-    const modelForm = formRef1.current?.getForm()
-    modelForm?.setFieldValue('__model_name', selectedModel.model)
-    modelForm?.setFieldValue('__model_type', selectedModel.model_type)
-  }, [])
+  const handleToggleDiscoveredModel = useCallback((selectedModel: DiscoveredModel) => {
+    const selectedKey = getDiscoveredModelKey(selectedModel)
+    setSelectedDiscoveredModelKeys((currentKeys) => {
+      if (currentKeys.includes(selectedKey))
+        return currentKeys.filter(key => key !== selectedKey)
+      return [...currentKeys, selectedKey]
+    })
+  }, [getDiscoveredModelKey])
+
+  const handleToggleAllDiscoveredModels = useCallback(() => {
+    if (selectedDiscoveredModelKeys.length === discoveredModels.length) {
+      setSelectedDiscoveredModelKeys([])
+      return
+    }
+    setSelectedDiscoveredModelKeys(discoveredModels.map(getDiscoveredModelKey))
+  }, [discoveredModels, getDiscoveredModelKey, selectedDiscoveredModelKeys.length])
 
   const handleModelNameAndTypeChange = useCallback((field: string, value: any) => {
     const {
@@ -420,25 +462,47 @@ const ModelModal: FC<ModelModalProps> = ({
                       }
                       {
                         !!discoveredModels.length && (
-                          <div className="mt-3 max-h-48 space-y-1 overflow-y-auto">
-                            {discoveredModels.map(discoveredModel => (
-                              <button
-                                key={`${discoveredModel.model_type}-${discoveredModel.model}`}
-                                type="button"
-                                className="flex w-full items-center justify-between rounded-lg border border-divider-subtle px-3 py-2 text-left hover:bg-state-base-hover"
-                                onClick={() => handleSelectDiscoveredModel(discoveredModel)}
-                              >
-                                <div className="min-w-0">
-                                  <div className="truncate system-sm-medium text-text-primary">
-                                    {discoveredModel.label || discoveredModel.model}
+                          <div className="mt-3">
+                            <div className="mb-2 flex items-center justify-between">
+                              <Button size="small" onClick={handleToggleAllDiscoveredModels}>
+                                {t('operation.selectAll', { ns: 'common' })}
+                              </Button>
+                              <span className="system-xs-regular text-text-tertiary">
+                                {t('dynamicSelect.selected', { ns: 'common', count: selectedDiscoveredModels.length })}
+                              </span>
+                            </div>
+                            <div className="max-h-48 space-y-1 overflow-y-auto">
+                              {discoveredModels.map(discoveredModel => (
+                                <div
+                                  key={`${discoveredModel.model_type}-${discoveredModel.model}`}
+                                  role="checkbox"
+                                  aria-checked={selectedDiscoveredModelKeys.includes(getDiscoveredModelKey(discoveredModel))}
+                                  tabIndex={0}
+                                  className="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-divider-subtle px-3 py-2 text-left hover:bg-state-base-hover"
+                                  onClick={() => handleToggleDiscoveredModel(discoveredModel)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === ' ' || event.key === 'Enter') {
+                                      event.preventDefault()
+                                      handleToggleDiscoveredModel(discoveredModel)
+                                    }
+                                  }}
+                                >
+                                  <Checkbox
+                                    checked={selectedDiscoveredModelKeys.includes(getDiscoveredModelKey(discoveredModel))}
+                                    className="pointer-events-none"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate system-sm-medium text-text-primary">
+                                      {discoveredModel.label || discoveredModel.model}
+                                    </div>
+                                    <div className="truncate system-xs-regular text-text-tertiary">
+                                      {discoveredModel.model}
+                                    </div>
                                   </div>
-                                  <div className="truncate system-xs-regular text-text-tertiary">
-                                    {discoveredModel.model}
-                                  </div>
+                                  <Badge>{discoveredModel.model_type}</Badge>
                                 </div>
-                                <Badge>{discoveredModel.model_type}</Badge>
-                              </button>
-                            ))}
+                              ))}
+                            </div>
                           </div>
                         )
                       }

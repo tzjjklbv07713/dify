@@ -1,3 +1,4 @@
+from json import JSONDecodeError
 from unittest.mock import Mock, patch
 
 import pytest
@@ -525,12 +526,14 @@ class TestProviderConfiguration:
         ]
 
     @patch("core.entities.provider_configuration.ssrf_proxy.get")
-    def test_discover_custom_model_candidates_should_reject_non_list_payload(self, mock_ssrf_get, provider_configuration):
+    def test_discover_custom_model_candidates_should_reject_non_list_payload(
+        self, mock_ssrf_get, provider_configuration
+    ):
         response = Mock()
         response.json.return_value = {"data": {"model": "not-a-list"}}
         mock_ssrf_get.return_value = response
 
-        with pytest.raises(ValueError, match="must contain a model list"):
+        with pytest.raises(ValueError, match="Unable to load models"):
             provider_configuration.discover_custom_model_candidates(
                 ModelType.LLM,
                 {
@@ -538,3 +541,29 @@ class TestProviderConfiguration:
                     "api_key": "secret",
                 },
             )
+
+    @patch("core.entities.provider_configuration.ssrf_proxy.get")
+    def test_discover_custom_model_candidates_should_fallback_to_openai_models(
+        self, mock_ssrf_get, provider_configuration
+    ):
+        html_response = Mock()
+        html_response.json.side_effect = JSONDecodeError("Expecting value", "", 0)
+        openai_response = Mock()
+        openai_response.json.return_value = {
+            "data": [
+                {"id": "doubao-seed-2.0-pro", "object": "model"},
+                {"id": "deepseek-v3", "type": "model"},
+            ]
+        }
+        mock_ssrf_get.side_effect = [html_response, openai_response]
+
+        result = provider_configuration.discover_custom_model_candidates(
+            ModelType.LLM,
+            {
+                "endpoint_url": "https://proxy.example.com",
+                "api_key": "secret",
+            },
+        )
+
+        assert [item["model"] for item in result] == ["deepseek-v3", "doubao-seed-2.0-pro"]
+        assert mock_ssrf_get.call_args_list[1].args[0] == "https://proxy.example.com/v1/models"

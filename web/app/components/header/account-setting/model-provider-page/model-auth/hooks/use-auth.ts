@@ -1,4 +1,4 @@
-import type { ConfigurationMethodEnum, Credential, CustomConfigurationModelFixedFields, CustomModel, ModelModalModeEnum, ModelProvider } from '../../declarations'
+import type { ConfigurationMethodEnum, Credential, CustomConfigurationModelFixedFields, CustomModel, ModelCredentialPayload, ModelModalModeEnum, ModelProvider } from '../../declarations'
 import { toast } from '@langgenius/dify-ui/toast'
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -172,6 +172,26 @@ export const useAuth = (provider: ModelProvider, configurationMethod: Configurat
       handleSetDoingAction(false)
     }
   }, [t, handleSetDoingAction, getEditCredentialService, getAddCredentialService])
+  const handleSaveModelCredentials = useCallback(async (payloads: ModelCredentialPayload[]) => {
+    if (doingActionRef.current || !payloads.length)
+      return
+    try {
+      handleSetDoingAction(true)
+      const addModelCredential = getAddCredentialService(true) as (
+        payload: ModelCredentialPayload,
+      ) => Promise<{ result?: string }>
+      for (const payload of payloads) {
+        const result = await addModelCredential(payload)
+        if (result.result !== 'success')
+          return
+      }
+      toast.success(t('actionMsg.modifiedSuccessfully', { ns: 'common' }))
+      handleRefreshModel(provider, undefined, true)
+    }
+    finally {
+      handleSetDoingAction(false)
+    }
+  }, [getAddCredentialService, handleRefreshModel, handleSetDoingAction, provider, t])
   const handleOpenModal = useCallback((credential?: Credential, model?: CustomModel) => {
     handleOpenModelModal(provider, configurationMethod, currentCustomConfigurationModelFixedFields, {
       isModelCredential,
@@ -200,6 +220,7 @@ export const useAuth = (provider: ModelProvider, configurationMethod: Configurat
     deleteCredentialId,
     deleteModel,
     handleSaveCredential,
+    handleSaveModelCredentials,
     handleOpenModal,
   }
 }
