@@ -554,4 +554,27 @@ describe('ModelModal', () => {
       })
     })
   })
+
+  it('should keep model discovery available when an existing credential is selected', () => {
+    renderModal({
+      configurateMethod: ConfigurationMethodEnum.customizableModel,
+      mode: ModelModalModeEnum.configCustomModel,
+      credential: {
+        credential_id: 'saved-credential',
+        credential_name: 'Saved Proxy',
+      },
+      provider: createProvider({
+        configurate_methods: [ConfigurationMethodEnum.customizableModel],
+        model_credential_schema: {
+          model: { label: createI18n('Model Name'), placeholder: createI18n('Please enter model name') },
+          credential_form_schemas: [
+            { variable: 'endpoint_url', type: 'text-input' } as unknown as CredentialFormSchema,
+            { variable: 'api_key', type: 'secret-input' } as unknown as CredentialFormSchema,
+          ],
+        },
+      }),
+    })
+
+    expect(screen.getByRole('button', { name: 'common.modelProvider.auth.fetchModels' })).toBeInTheDocument()
+  })
 })

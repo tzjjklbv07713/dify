@@ -150,8 +150,8 @@ const ModelModal: FC<ModelModalProps> = ({
     const variables = new Set((provider.model_credential_schema?.credential_form_schemas || []).map(schema => schema.variable))
     const hasBaseUrl = variables.has('proxy_base_url') || variables.has('endpoint_url')
     const hasApiKey = variables.has('proxy_api_key') || variables.has('api_key') || variables.has('openai_api_key')
-    return mode === ModelModalModeEnum.configCustomModel && !credential && hasBaseUrl && hasApiKey
-  }, [credential, mode, provider.model_credential_schema])
+    return mode === ModelModalModeEnum.configCustomModel && hasBaseUrl && hasApiKey
+  }, [mode, provider.model_credential_schema])
 
   const getDiscoveredModelKey = useCallback((discoveredModel: DiscoveredModel) => {
     return `${discoveredModel.model_type}:${discoveredModel.model}`
