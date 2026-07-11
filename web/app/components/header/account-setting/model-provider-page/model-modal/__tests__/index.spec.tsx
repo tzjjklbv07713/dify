@@ -577,4 +577,18 @@ describe('ModelModal', () => {
 
     expect(screen.getByRole('button', { name: 'common.modelProvider.auth.fetchModels' })).toBeInTheDocument()
   })
+
+  it('should show model discovery for Model Hub when its credential schema is not exposed', () => {
+    renderModal({
+      configurateMethod: ConfigurationMethodEnum.customizableModel,
+      mode: ModelModalModeEnum.configCustomModel,
+      provider: createProvider({
+        provider: 'your-company/model-hub-provider/model_hub',
+        configurate_methods: [ConfigurationMethodEnum.customizableModel],
+        model_credential_schema: undefined,
+      }),
+    })
+
+    expect(screen.getByRole('button', { name: 'common.modelProvider.auth.fetchModels' })).toBeInTheDocument()
+  })
 })
