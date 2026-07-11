@@ -48,8 +48,9 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
   const [isLoadingAppDetail, setIsLoadingAppDetail] = useState(false)
   const [appDetailRes, setAppDetailRes] = useState<App | null>(null)
   const routeAppDetail = appDetailRes ?? (appDetail?.id === appId ? appDetail : null)
+  const hasCurrentAppDetail = appDetail?.id === appId
 
-  useDocumentTitle(appDetail?.name || t('menus.appDetail', { ns: 'common' }))
+  useDocumentTitle(hasCurrentAppDetail ? appDetail?.name : t('menus.appDetail', { ns: 'common' }))
 
   useEffect(() => {
     let ignore = false
@@ -134,7 +135,7 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
   }, [appDetail?.id, appDetailRes, appId, currentWorkspace.id, isLoadingAppDetail, isLoadingCurrentWorkspace, isLoadingWorkspacePermissionKeys, isRbacEnabled, pathname, routeAppDetail, router, setAppDetail, userProfile?.id, workspacePermissionKeys])
 
   const isWorkflowPage = pathname.endsWith('/workflow')
-  const content = !appDetail
+  const content = !hasCurrentAppDetail
     ? (
         <div className="flex min-w-0 grow items-center justify-center bg-background-body">
           <Loading />

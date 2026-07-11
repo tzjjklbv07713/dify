@@ -112,6 +112,24 @@ describe('AppDetailLayout', () => {
     expect(useStore.getState().appDetail?.id).toBe('app-1')
   })
 
+  it('should keep stale app detail data out of the new app page while loading', async () => {
+    useStore.getState().setAppDetail(createAppDetail({ id: 'previous-app' }))
+    mockFetchAppDetailDirect.mockImplementation(
+      () => new Promise(resolve => setTimeout(() => resolve(createAppDetail()), 20)),
+    )
+
+    render(
+      <AppDetailLayout appId="app-1">
+        <div>App page content</div>
+      </AppDetailLayout>,
+    )
+
+    expect(screen.queryByText('App page content')).not.toBeInTheDocument()
+
+    await waitForAppContent()
+    expect(useStore.getState().appDetail?.id).toBe('app-1')
+  })
+
   it('should render app detail content without owning the main skip target', async () => {
     render(
       <AppDetailLayout appId="app-1">
