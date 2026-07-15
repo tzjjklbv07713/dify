@@ -51,6 +51,7 @@ import {
   ConfigurationMethodEnum,
   FormTypeEnum,
   ModelModalModeEnum,
+  ModelTypeEnum,
 } from '../declarations'
 import {
   useLanguage,
@@ -146,13 +147,14 @@ const ModelModal: FC<ModelModalProps> = ({
     return key !== '__model_name' && key !== '__model_type' && !!formValues[key]
   }).length && canManageCredential
 
+  const isModelHubProvider = provider.provider.includes('/model-hub-provider/model_hub')
   const supportsModelDiscovery = useMemo(() => {
     const variables = new Set((provider.model_credential_schema?.credential_form_schemas || []).map(schema => schema.variable))
     const hasBaseUrl = variables.has('proxy_base_url') || variables.has('endpoint_url')
     const hasApiKey = variables.has('proxy_api_key') || variables.has('api_key') || variables.has('openai_api_key')
-    const isModelHubProvider = provider.provider.includes('/model-hub-provider/model_hub')
     return mode === ModelModalModeEnum.configCustomModel && (isModelHubProvider || (hasBaseUrl && hasApiKey))
-  }, [mode, provider.model_credential_schema, provider.provider])
+  }, [isModelHubProvider, mode, provider.model_credential_schema])
+  const usesDiscoveredModelsOnly = mode === ModelModalModeEnum.configCustomModel && isModelHubProvider
 
   const getDiscoveredModelKey = useCallback((discoveredModel: DiscoveredModel) => {
     return `${discoveredModel.model_type}:${discoveredModel.model}`
@@ -187,7 +189,7 @@ const ModelModal: FC<ModelModalProps> = ({
         __model_type: firstSelectedDiscoveredModel.model_type,
       }
     }
-    else if (mode === ModelModalModeEnum.configCustomModel) {
+    else if (mode === ModelModalModeEnum.configCustomModel && !usesDiscoveredModelsOnly) {
       const formResult = formRef1.current?.getFormValues({
         needCheckValidatedValues: true,
       }) || { isCheckValidated: false, values: {} }
@@ -216,11 +218,11 @@ const ModelModal: FC<ModelModalProps> = ({
     const credentialFormResult = reusableModelCredential
       ? { isCheckValidated: true, values: {} }
       : formRef2.current?.getFormValues({
-          needCheckValidatedValues: true,
-          needTransformWhenSecretFieldIsPristine: true,
-        }) || { isCheckValidated: false, values: {} }
+        needCheckValidatedValues: true,
+        needTransformWhenSecretFieldIsPristine: true,
+      }) || { isCheckValidated: false, values: {} }
     const { isCheckValidated, values } = credentialFormResult
-    if (!isCheckValidated || !modelNameAndTypeIsCheckValidated)
+    if (!isCheckValidated || !modelNameAndTypeIsCheckValidated || (usesDiscoveredModelsOnly && !selectedDiscoveredModels.length))
       return
 
     const {
@@ -269,7 +271,7 @@ const ModelModal: FC<ModelModalProps> = ({
       })
     }
     onSave(values)
-  }, [mode, selectedCredential, model, currentCustomConfigurationModelFixedFields, canUseCredential, canCreateCredential, canManageCredential, onSave, handleActiveCredential, onCancel, handleSaveCredential, handleSaveModelCredentials, credential, selectedDiscoveredModels, reusableModelCredential])
+  }, [mode, selectedCredential, model, currentCustomConfigurationModelFixedFields, canUseCredential, canCreateCredential, canManageCredential, onSave, handleActiveCredential, onCancel, handleSaveCredential, handleSaveModelCredentials, credential, selectedDiscoveredModels, reusableModelCredential, usesDiscoveredModelsOnly])
 
   const modalTitle = useMemo(() => {
     let label = t('modelProvider.auth.apiKeyModal.title', { ns: 'common' })
@@ -362,15 +364,17 @@ const ModelModal: FC<ModelModalProps> = ({
     const credentialFormResult = reusableModelCredential
       ? { isCheckValidated: true, values: {} }
       : formRef2.current?.getFormValues({
-          needCheckValidatedValues: true,
-          needTransformWhenSecretFieldIsPristine: true,
-        }) || { isCheckValidated: false, values: {} }
+        needCheckValidatedValues: true,
+        needTransformWhenSecretFieldIsPristine: true,
+      }) || { isCheckValidated: false, values: {} }
 
     if (!credentialFormResult.isCheckValidated)
       return
 
     const modelForm = formRef1.current?.getForm()
-    const modelType = modelForm?.state?.values?.__model_type || provider.supported_model_types[0]
+    const modelType = usesDiscoveredModelsOnly
+      ? ModelTypeEnum.textGeneration
+      : modelForm?.state?.values?.__model_type || provider.supported_model_types[0]
     if (!modelType)
       return
 
@@ -407,7 +411,7 @@ const ModelModal: FC<ModelModalProps> = ({
       setDiscoverError(message)
       toast.error(message)
     }
-  }, [discoverProviderModels, getDiscoveredModelKey, provider.custom_configuration.custom_models, provider.supported_model_types, reusableModelCredential, t])
+  }, [discoverProviderModels, getDiscoveredModelKey, provider.custom_configuration.custom_models, provider.supported_model_types, reusableModelCredential, t, usesDiscoveredModelsOnly])
 
   const handleToggleDiscoveredModel = useCallback((selectedModel: DiscoveredModel) => {
     const selectedKey = getDiscoveredModelKey(selectedModel)
@@ -461,18 +465,20 @@ const ModelModal: FC<ModelModalProps> = ({
           {
             mode === ModelModalModeEnum.configCustomModel && (
               <>
-                <AuthForm
-                  formSchemas={modelNameAndTypeFormSchemas.map((formSchema) => {
-                    return {
-                      ...formSchema,
-                      name: formSchema.variable,
-                    }
-                  }) as FormSchema[]}
-                  defaultValues={modelNameAndTypeFormValues}
-                  inputClassName="justify-start"
-                  ref={formRef1}
-                  onChange={handleModelNameAndTypeChange}
-                />
+                {!usesDiscoveredModelsOnly && (
+                  <AuthForm
+                    formSchemas={modelNameAndTypeFormSchemas.map((formSchema) => {
+                      return {
+                        ...formSchema,
+                        name: formSchema.variable,
+                      }
+                    }) as FormSchema[]}
+                    defaultValues={modelNameAndTypeFormValues}
+                    inputClassName="justify-start"
+                    ref={formRef1}
+                    onChange={handleModelNameAndTypeChange}
+                  />
+                )}
                 {
                   reusableModelCredential && (
                     <div className="mt-3 rounded-lg border border-divider-subtle bg-background-default-subtle px-3 py-2 system-xs-regular text-text-secondary">

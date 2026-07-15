@@ -39,6 +39,10 @@ The codebase is split into:
 - Inject dependencies through constructors and preserve clean architecture boundaries.
 - Handle errors with domain-specific exceptions at the correct layer.
 
+## Collaboration Handoff
+
+- At the end of every response, state the concrete next planned step and what the user should do next, if any.
+
 ## Project Conventions
 
 - Backend architecture adheres to DDD and Clean Architecture principles.

@@ -177,6 +177,19 @@ const createProvider = (overrides?: Partial<ModelProvider>): ModelProvider => ({
   ...overrides,
 })
 
+const createModelHubProvider = () => createProvider({
+  provider: 'your-company/model-hub-provider/model_hub',
+  configurate_methods: [ConfigurationMethodEnum.customizableModel],
+  model_credential_schema: {
+    model: { label: createI18n('Model Name'), placeholder: createI18n('Please enter model name') },
+    credential_form_schemas: [
+      { variable: 'endpoint_url', type: 'text-input' } as unknown as CredentialFormSchema,
+      { variable: 'api_key', type: 'secret-input' } as unknown as CredentialFormSchema,
+      { variable: 'catalog_path', type: 'text-input' } as unknown as CredentialFormSchema,
+    ],
+  },
+})
+
 const renderModal = (overrides?: Partial<React.ComponentProps<typeof ModelModal>>) => {
   const provider = createProvider()
   const props = {
@@ -590,5 +603,107 @@ describe('ModelModal', () => {
     })
 
     expect(screen.getByRole('button', { name: 'common.modelProvider.auth.fetchModels' })).toBeInTheDocument()
+  })
+
+  it('should save selected Model Hub models without a manually entered model name', async () => {
+    mockState.formSchemas = [
+      { variable: 'endpoint_url', type: 'text-input' } as unknown as CredentialFormSchema,
+      { variable: 'api_key', type: 'secret-input' } as unknown as CredentialFormSchema,
+      { variable: 'catalog_path', type: 'text-input' } as unknown as CredentialFormSchema,
+    ]
+    mockHandlers.discoverProviderModels.mockResolvedValue({
+      data: [
+        { model: 'gpt-5-mini', model_type: ModelTypeEnum.textGeneration },
+        { model: 'deepseek-v3', model_type: ModelTypeEnum.textGeneration },
+      ],
+    })
+    mockFormState.responses = [
+      {
+        isCheckValidated: true,
+        values: {
+          __authorization_name__: 'Model Hub',
+          endpoint_url: 'https://hub.example.com/v1',
+          api_key: 'secret',
+          catalog_path: '/models',
+        },
+      },
+      {
+        isCheckValidated: true,
+        values: {
+          __authorization_name__: 'Model Hub',
+          endpoint_url: 'https://hub.example.com/v1',
+          api_key: 'secret',
+          catalog_path: '/models',
+        },
+      },
+    ]
+
+    renderModal({
+      configurateMethod: ConfigurationMethodEnum.customizableModel,
+      mode: ModelModalModeEnum.configCustomModel,
+      provider: createModelHubProvider(),
+    })
+
+    expect(screen.getAllByText('Model Name Change')).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.modelProvider.auth.fetchModels' }))
+    await waitFor(() => {
+      expect(mockHandlers.discoverProviderModels).toHaveBeenCalledWith({
+        model_type: ModelTypeEnum.textGeneration,
+        credentials: {
+          endpoint_url: 'https://hub.example.com/v1',
+          api_key: 'secret',
+          catalog_path: '/models',
+        },
+      })
+    })
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /gpt-5-mini/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /deepseek-v3/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'common.operation.add' }))
+
+    await waitFor(() => {
+      expect(mockHandlers.handleSaveModelCredentials).toHaveBeenCalledWith({
+        credentials: {
+          endpoint_url: 'https://hub.example.com/v1',
+          api_key: 'secret',
+          catalog_path: '/models',
+        },
+        name: 'Model Hub',
+        models: [
+          { model: 'gpt-5-mini', model_type: ModelTypeEnum.textGeneration },
+          { model: 'deepseek-v3', model_type: ModelTypeEnum.textGeneration },
+        ],
+      })
+    })
+  })
+
+  it('should not save Model Hub when no discovered model is selected', async () => {
+    mockState.formSchemas = [
+      { variable: 'endpoint_url', type: 'text-input' } as unknown as CredentialFormSchema,
+      { variable: 'api_key', type: 'secret-input' } as unknown as CredentialFormSchema,
+      { variable: 'catalog_path', type: 'text-input' } as unknown as CredentialFormSchema,
+    ]
+    mockFormState.responses = [{
+      isCheckValidated: true,
+      values: {
+        endpoint_url: 'https://hub.example.com/v1',
+        api_key: 'secret',
+        catalog_path: '/models',
+      },
+    }]
+
+    renderModal({
+      configurateMethod: ConfigurationMethodEnum.customizableModel,
+      mode: ModelModalModeEnum.configCustomModel,
+      provider: createModelHubProvider(),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.operation.add' }))
+
+    await waitFor(() => {
+      expect(mockHandlers.handleSaveModelCredentials).not.toHaveBeenCalled()
+      expect(mockHandlers.handleSaveCredential).not.toHaveBeenCalled()
+    })
   })
 })
