@@ -1,0 +1,189 @@
+{
+  "version": "0.1.5",
+  "author": "your-company",
+  "name": "model-hub-provider",
+  "label": {
+    "en_US": "Model Hub Provider",
+    "zh_Hans": "Model Hub Provider"
+  },
+  "description": {
+    "en_US": "Custom model provider for a third-party proxy that aggregates multiple upstream model vendors.",
+    "zh_Hans": "Custom model provider for a third-party proxy that aggregates multiple upstream model vendors."
+  },
+  "icon": "_assets/model-hub-icon.svg",
+  "icon_dark": "_assets/model-hub-icon-dark.svg",
+  "created_at": "2026-07-07T00:20:00+08:00",
+  "resource": {
+    "memory": 268435456,
+    "permission": {
+      "model": {
+        "enabled": true,
+        "llm": true,
+        "text_embedding": true,
+        "rerank": true,
+        "tts": true,
+        "speech2text": true
+      }
+    }
+  },
+  "plugins": {
+    "models": [
+      "your-company/model-hub/proxy"
+    ],
+    "tools": [],
+    "endpoints": [],
+    "datasources": [],
+    "triggers": []
+  },
+  "tags": [
+    "model-hub",
+    "proxy",
+    "openai-compatible",
+    "multi-vendor"
+  ],
+  "verified": false,
+  "model": {
+    "provider": "your-company/model-hub/proxy",
+    "provider_name": "model-hub",
+    "label": {
+      "en_US": "Model Hub",
+      "zh_Hans": "Model Hub"
+    },
+    "description": {
+      "en_US": "Third-party proxy provider with remote model discovery and manual model fallback.",
+      "zh_Hans": "Third-party proxy provider with remote model discovery and manual model fallback."
+    },
+    "icon_small": {
+      "en_US": "_assets/model-hub-icon.svg",
+      "zh_Hans": "_assets/model-hub-icon.svg"
+    },
+    "icon_small_dark": {
+      "en_US": "_assets/model-hub-icon-dark.svg",
+      "zh_Hans": "_assets/model-hub-icon-dark.svg"
+    },
+    "background": "#0F172A",
+    "supported_model_types": [
+      "llm",
+      "text-embedding",
+      "rerank",
+      "speech2text",
+      "tts"
+    ],
+    "configurate_methods": [
+      "predefined-model",
+      "customizable-model"
+    ],
+    "provider_credential_schema": {
+      "credential_form_schemas": [
+        {
+          "variable": "proxy_base_url",
+          "label": {
+            "en_US": "Proxy Base URL",
+            "zh_Hans": "Proxy Base URL"
+          },
+          "type": "text-input",
+          "required": true,
+          "placeholder": {
+            "en_US": "https://model-hub.example.com",
+            "zh_Hans": "https://model-hub.example.com"
+          }
+        },
+        {
+          "variable": "proxy_api_key",
+          "label": {
+            "en_US": "Proxy API Key",
+            "zh_Hans": "Proxy API Key"
+          },
+          "type": "secret-input",
+          "required": true
+        },
+        {
+          "variable": "catalog_path",
+          "label": {
+            "en_US": "Catalog Path",
+            "zh_Hans": "Catalog Path"
+          },
+          "type": "text-input",
+          "required": false,
+          "default": "/provider/models",
+          "placeholder": {
+            "en_US": "/provider/models",
+            "zh_Hans": "/provider/models"
+          }
+        },
+        {
+          "variable": "api_protocol",
+          "label": {
+            "en_US": "API Protocol",
+            "zh_Hans": "API Protocol"
+          },
+          "type": "select",
+          "required": false,
+          "default": "responses",
+          "options": [
+            {
+              "value": "responses",
+              "label": {
+                "en_US": "Responses API",
+                "zh_Hans": "Responses API"
+              }
+            },
+            {
+              "value": "chat_completions",
+              "label": {
+                "en_US": "Chat Completions",
+                "zh_Hans": "Chat Completions"
+              }
+            }
+          ]
+        },
+        {
+          "variable": "routing_group",
+          "label": {
+            "en_US": "Routing Group",
+            "zh_Hans": "Routing Group"
+          },
+          "type": "text-input",
+          "required": false
+        },
+        {
+          "variable": "timeout_ms",
+          "label": {
+            "en_US": "Timeout (ms)",
+            "zh_Hans": "Timeout (ms)"
+          },
+          "type": "text-input",
+          "required": false,
+          "default": "15000"
+        },
+        {
+          "variable": "validation_model",
+          "label": {
+            "en_US": "Validation Model",
+            "zh_Hans": "Validation Model"
+          },
+          "type": "text-input",
+          "required": false
+        }
+      ]
+    },
+    "model_credential_schema": {
+      "model": {
+        "label": {
+          "en_US": "Model Name",
+          "zh_Hans": "Model Name"
+        },
+        "placeholder": {
+          "en_US": "claude-3-5-sonnet / gemini-2.5-pro / deepseek-chat ...",
+          "zh_Hans": "claude-3-5-sonnet / gemini-2.5-pro / deepseek-chat ..."
+        }
+      },
+      "credential_form_schemas": []
+    },
+    "models": []
+  },
+  "meta": {
+    "minimum_dify_version": "1.15.0",
+    "version": "0.1.5"
+  }
+}

@@ -1,0 +1,295 @@
+provider: model_hub
+label:
+  en_US: Model Hub
+  zh_Hans: Model Hub
+description:
+  en_US: Custom third-party model relay with remote model discovery and OpenAI-compatible routing.
+  zh_Hans: 自定义第三方模型中转，支持远程模型发现与 OpenAI 兼容路由。
+icon_small:
+  en_US: model-hub-icon.svg
+icon_large:
+  en_US: model-hub-icon.svg
+background: "#0F172A"
+help:
+  title:
+    en_US: Configure your model hub endpoint and API key
+    zh_Hans: 配置你的模型中转地址与 API Key
+  url:
+    en_US: https://model-hub.example.com/docs
+    zh_Hans: https://model-hub.example.com/docs
+supported_model_types:
+  - llm
+configurate_methods:
+  - predefined-model
+  - customizable-model
+provider_credential_schema:
+  credential_form_schemas:
+    - variable: endpoint_url
+      label:
+        en_US: Proxy Base URL
+        zh_Hans: 中转基础地址
+      type: text-input
+      required: true
+      placeholder:
+        en_US: https://model-hub.example.com
+        zh_Hans: https://model-hub.example.com
+    - variable: api_key
+      label:
+        en_US: Proxy API Key
+        zh_Hans: 中转 API Key
+      type: secret-input
+      required: true
+    - variable: catalog_path
+      label:
+        en_US: Catalog Path
+        zh_Hans: 模型目录路径
+      type: text-input
+      required: false
+      default: /models
+    - variable: api_protocol
+      label:
+        en_US: API Protocol
+        zh_Hans: API 协议
+      type: select
+      required: false
+      default: responses
+      options:
+        - value: responses
+          label:
+            en_US: Responses API
+            zh_Hans: Responses API
+        - value: chat_completions
+          label:
+            en_US: Chat Completions
+            zh_Hans: Chat Completions
+    - variable: routing_group
+      label:
+        en_US: Routing Group
+        zh_Hans: 路由分组
+      type: text-input
+      required: false
+    - variable: timeout_ms
+      label:
+        en_US: Timeout (ms)
+        zh_Hans: 超时毫秒
+      type: text-input
+      required: false
+      default: "15000"
+    - variable: validation_model
+      label:
+        en_US: Validation Model
+        zh_Hans: 校验模型
+      type: text-input
+      required: false
+model_credential_schema:
+  model:
+    label:
+      en_US: Model Name
+      zh_Hans: 模型名称
+    placeholder:
+      en_US: claude-3-5-sonnet / gemini-2.5-pro / deepseek-chat
+      zh_Hans: claude-3-5-sonnet / gemini-2.5-pro / deepseek-chat
+  credential_form_schemas:
+    - variable: endpoint_url
+      label:
+        en_US: Proxy Base URL
+        zh_Hans: 中转基础地址
+      type: text-input
+      required: true
+      placeholder:
+        en_US: https://model-hub.example.com
+        zh_Hans: https://model-hub.example.com
+    - variable: api_key
+      label:
+        en_US: Proxy API Key
+        zh_Hans: 中转 API Key
+      type: secret-input
+      required: true
+    - variable: catalog_path
+      label:
+        en_US: Catalog Path
+        zh_Hans: 模型目录路径
+      type: text-input
+      required: false
+      default: /models
+    - variable: api_protocol
+      label:
+        en_US: API Protocol
+        zh_Hans: API 协议
+      type: select
+      required: false
+      default: responses
+      options:
+        - value: responses
+          label:
+            en_US: Responses API
+            zh_Hans: Responses API
+        - value: chat_completions
+          label:
+            en_US: Chat Completions
+            zh_Hans: Chat Completions
+    - variable: routing_group
+      label:
+        en_US: Routing Group
+        zh_Hans: 路由分组
+      type: text-input
+      required: false
+    - variable: timeout_ms
+      label:
+        en_US: Timeout (ms)
+        zh_Hans: 超时毫秒
+      type: text-input
+      required: false
+      default: "15000"
+    - variable: validation_model
+      label:
+        en_US: Validation Model
+        zh_Hans: 校验模型
+      type: text-input
+      required: false
+    - variable: mode
+      show_on:
+        - variable: __model_type
+          value: llm
+      label:
+        en_US: Completion Mode
+        zh_Hans: 对话模式
+      type: select
+      required: false
+      default: chat
+      options:
+        - value: completion
+          label:
+            en_US: Completion
+            zh_Hans: 补全
+        - value: chat
+          label:
+            en_US: Chat
+            zh_Hans: 对话
+    - variable: context_size
+      show_on:
+        - variable: __model_type
+          value: llm
+      label:
+        en_US: Context Size
+        zh_Hans: 上下文长度
+      type: text-input
+      required: false
+      default: "128000"
+    - variable: max_tokens_to_sample
+      show_on:
+        - variable: __model_type
+          value: llm
+      label:
+        en_US: Max Tokens
+        zh_Hans: 最大 Token
+      type: text-input
+      required: false
+      default: "4096"
+    - variable: vision_support
+      show_on:
+        - variable: __model_type
+          value: llm
+      label:
+        en_US: Vision Support
+        zh_Hans: 视觉支持
+      type: select
+      required: false
+      default: no_support
+      options:
+        - value: support
+          label:
+            en_US: Support
+            zh_Hans: 支持
+        - value: no_support
+          label:
+            en_US: Not Support
+            zh_Hans: 不支持
+    - variable: function_calling_type
+      show_on:
+        - variable: __model_type
+          value: llm
+      label:
+        en_US: Function Calling
+        zh_Hans: 函数调用
+      type: select
+      required: false
+      default: tool_call
+      options:
+        - value: function_call
+          label:
+            en_US: Function Call
+            zh_Hans: 函数调用
+        - value: tool_call
+          label:
+            en_US: Tool Call
+            zh_Hans: 工具调用
+        - value: no_call
+          label:
+            en_US: Not Support
+            zh_Hans: 不支持
+    - variable: vector_size
+      show_on:
+        - variable: __model_type
+          value: text-embedding
+      label:
+        en_US: Embedding Dimensions
+        zh_Hans: 向量维度
+      type: text-input
+      required: false
+      default: "1536"
+    - variable: score_threshold
+      show_on:
+        - variable: __model_type
+          value: rerank
+      label:
+        en_US: Default Score Threshold
+        zh_Hans: 默认分数阈值
+      type: text-input
+      required: false
+      default: "0"
+    - variable: supported_file_extensions
+      show_on:
+        - variable: __model_type
+          value: speech2text
+      label:
+        en_US: Supported File Extensions
+        zh_Hans: 支持文件后缀
+      type: text-input
+      required: false
+      default: flac,mp3,mp4,mpeg,mpga,m4a,ogg,wav,webm
+    - variable: voices
+      show_on:
+        - variable: __model_type
+          value: tts
+      label:
+        en_US: Voices
+        zh_Hans: 声线列表
+      type: text-input
+      required: false
+      default: alloy
+models:
+  llm:
+    predefined:
+      - "models/llm/*.yaml"
+  text_embedding:
+    predefined:
+      - "models/text_embedding/*.yaml"
+  rerank:
+    predefined:
+      - "models/rerank/*.yaml"
+  speech2text:
+    predefined:
+      - "models/speech2text/*.yaml"
+  tts:
+    predefined:
+      - "models/tts/*.yaml"
+extra:
+  python:
+    provider_source: provider/model_hub.py
+    model_sources:
+      - "models/llm/llm.py"
+      - "models/text_embedding/text_embedding.py"
+      - "models/rerank/rerank.py"
+      - "models/speech2text/speech2text.py"
+      - "models/tts/tts.py"

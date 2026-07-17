@@ -1,0 +1,14 @@
+model: model-hub-tts
+label:
+  en_US: Model Hub TTS
+  zh_Hans: Model Hub TTS
+model_type: tts
+model_properties:
+  default_voice: alloy
+  voices:
+    - mode: alloy
+      name: Alloy
+      language: [zh-Hans, en-US]
+  word_limit: 4096
+  audio_type: mp3
+  max_workers: 5

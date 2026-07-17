@@ -1,0 +1,6 @@
+model: model-hub-rerank
+label:
+  en_US: Model Hub Rerank
+  zh_Hans: Model Hub Rerank
+model_type: rerank
+model_properties: {}

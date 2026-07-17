@@ -1,0 +1,8 @@
+model: model-hub-transcribe
+label:
+  en_US: Model Hub Transcribe
+  zh_Hans: Model Hub Transcribe
+model_type: speech2text
+model_properties:
+  file_upload_limit: 25
+  supported_file_extensions: flac,mp3,mp4,mpeg,mpga,m4a,ogg,wav,webm

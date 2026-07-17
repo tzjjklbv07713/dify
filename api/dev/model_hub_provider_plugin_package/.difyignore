@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+dist/
+docs/
+src/
+verify_local.py
+inspect_package.py
+install_live.py
+smoke_live.py
+build_package.py
+build_manifest.py
+manifest.json
