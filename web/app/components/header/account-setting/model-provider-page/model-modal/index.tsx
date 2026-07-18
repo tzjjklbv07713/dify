@@ -155,6 +155,7 @@ const ModelModal: FC<ModelModalProps> = ({
     return mode === ModelModalModeEnum.configCustomModel && (isModelHubProvider || (hasBaseUrl && hasApiKey))
   }, [isModelHubProvider, mode, provider.model_credential_schema])
   const usesDiscoveredModelsOnly = mode === ModelModalModeEnum.configCustomModel && isModelHubProvider
+  const shouldReuseModelCredential = mode === ModelModalModeEnum.configCustomModel && !!reusableModelCredential
 
   const getDiscoveredModelKey = useCallback((discoveredModel: DiscoveredModel) => {
     return `${discoveredModel.model_type}:${discoveredModel.model}`
@@ -215,7 +216,7 @@ const ModelModal: FC<ModelModalProps> = ({
         __model_type: modelContext.model_type,
       }
     }
-    const credentialFormResult = reusableModelCredential
+    const credentialFormResult = shouldReuseModelCredential
       ? { isCheckValidated: true, values: {} }
       : formRef2.current?.getFormValues({
         needCheckValidatedValues: true,
@@ -271,7 +272,7 @@ const ModelModal: FC<ModelModalProps> = ({
       })
     }
     onSave(values)
-  }, [mode, selectedCredential, model, currentCustomConfigurationModelFixedFields, canUseCredential, canCreateCredential, canManageCredential, onSave, handleActiveCredential, onCancel, handleSaveCredential, handleSaveModelCredentials, credential, selectedDiscoveredModels, reusableModelCredential, usesDiscoveredModelsOnly])
+  }, [mode, selectedCredential, model, currentCustomConfigurationModelFixedFields, canUseCredential, canCreateCredential, canManageCredential, onSave, handleActiveCredential, onCancel, handleSaveCredential, handleSaveModelCredentials, credential, selectedDiscoveredModels, reusableModelCredential, shouldReuseModelCredential, usesDiscoveredModelsOnly])
 
   const modalTitle = useMemo(() => {
     let label = t('modelProvider.auth.apiKeyModal.title', { ns: 'common' })
@@ -361,7 +362,7 @@ const ModelModal: FC<ModelModalProps> = ({
   }, [handleConfirmDelete, onCancel])
 
   const handleDiscoverModels = useCallback(async () => {
-    const credentialFormResult = reusableModelCredential
+    const credentialFormResult = shouldReuseModelCredential
       ? { isCheckValidated: true, values: {} }
       : formRef2.current?.getFormValues({
         needCheckValidatedValues: true,
@@ -411,7 +412,7 @@ const ModelModal: FC<ModelModalProps> = ({
       setDiscoverError(message)
       toast.error(message)
     }
-  }, [discoverProviderModels, getDiscoveredModelKey, provider.custom_configuration.custom_models, provider.supported_model_types, reusableModelCredential, t, usesDiscoveredModelsOnly])
+  }, [discoverProviderModels, getDiscoveredModelKey, provider.custom_configuration.custom_models, provider.supported_model_types, reusableModelCredential, shouldReuseModelCredential, t, usesDiscoveredModelsOnly])
 
   const handleToggleDiscoveredModel = useCallback((selectedModel: DiscoveredModel) => {
     const selectedKey = getDiscoveredModelKey(selectedModel)

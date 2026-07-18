@@ -385,6 +385,50 @@ describe('ModelModal', () => {
     removable.unmount()
   })
 
+  it('should submit edited model credentials when the provider has a reusable credential', async () => {
+    mockState.formSchemas = [
+      { variable: 'endpoint_url', type: 'text-input' } as unknown as CredentialFormSchema,
+      { variable: 'api_key', type: 'secret-input' } as unknown as CredentialFormSchema,
+    ]
+    mockFormState.responses = [{
+      isCheckValidated: true,
+      values: {
+        __authorization_name__: 'Model Hub Auth',
+        endpoint_url: 'https://hub.example.com/v1',
+        api_key: '[__HIDDEN__]',
+      },
+    }]
+    const provider = createModelHubProvider()
+    provider.custom_configuration.custom_models = [{
+      model: 'gpt-5-mini',
+      model_type: ModelTypeEnum.textGeneration,
+      current_credential_id: 'reusable-credential',
+      current_credential_name: 'Reusable Auth',
+    }]
+
+    renderModal({
+      provider,
+      configurateMethod: ConfigurationMethodEnum.customizableModel,
+      mode: ModelModalModeEnum.configModelCredential,
+      model: { model: 'claude-sonnet-4-6', model_type: ModelTypeEnum.textGeneration },
+      credential: { credential_id: 'claude-credential' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'common.operation.save' }))
+
+    await waitFor(() => {
+      expect(mockHandlers.handleSaveCredential).toHaveBeenCalledWith({
+        credential_id: 'claude-credential',
+        credentials: {
+          endpoint_url: 'https://hub.example.com/v1',
+          api_key: '[__HIDDEN__]',
+        },
+        name: 'Model Hub Auth',
+        model: 'claude-sonnet-4-6',
+        model_type: ModelTypeEnum.textGeneration,
+      })
+    })
+  })
+
   it('should use fixed model context when saving a model credential without model prop', async () => {
     mockState.formSchemas = [{ variable: 'api_key', type: 'secret-input' } as unknown as CredentialFormSchema]
     mockFormState.responses = [
@@ -488,8 +532,8 @@ describe('ModelModal', () => {
       })
     })
 
-    fireEvent.click(screen.getByRole('checkbox', { name: /Doubao Seed 2.0 Pro/i }))
-    fireEvent.click(screen.getByRole('checkbox', { name: /Doubao Lite/i }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Doubao Seed 2.0 Pro/i }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Doubao Lite/i }))
     fireEvent.click(screen.getByRole('button', { name: 'common.operation.add' }))
 
     await waitFor(() => {
