@@ -1,0 +1,1299 @@
+app:
+  description: 4-step image-prompt workflow for Lizhuo Supermarket summer poster generation, variant prompt generation, reference-image generation, and prompt templating.
+  icon: "🥤"
+  icon_background: '#FFEAD5'
+  icon_type: emoji
+  mode: workflow
+  name: lizhuo_summer_poster_workflow
+  use_icon_as_answer_icon: false
+dependencies:
+  - current_identifier: null
+    type: marketplace
+    value:
+      marketplace_plugin_unique_identifier: langgenius/openai:0.2.5@373362a028986aae53a7baf73a7f11991ba3c22c69eaf97d6cde048cfd4a9f98
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables:
+    - id: env-image-api-url
+      name: IMAGE_API_URL
+      value: https://api.openai.com/v1/images/generations
+      value_type: string
+      description: HTTP endpoint for image generation. Default is the OpenAI Images API.
+    - id: env-image-api-key
+      name: IMAGE_API_KEY
+      value: CHANGE_ME
+      value_type: secret
+      description: API key used by the HTTP image-generation steps.
+  features:
+    file_upload:
+      allowed_file_extensions:
+        - .JPG
+        - .JPEG
+        - .PNG
+        - .GIF
+        - .WEBP
+        - .SVG
+      allowed_file_types:
+        - image
+      allowed_file_upload_methods:
+        - local_file
+        - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+          - local_file
+          - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: start
+          targetType: llm
+        id: start-to-llm-master
+        source: start_node
+        sourceHandle: source
+        target: llm_master_prompt
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: llm
+          targetType: code
+        id: llm-master-to-parse-master
+        source: llm_master_prompt
+        sourceHandle: source
+        target: code_parse_master_prompt
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: code
+          targetType: code
+        id: parse-master-to-prepare-master-image
+        source: code_parse_master_prompt
+        sourceHandle: source
+        target: code_prepare_master_image
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: code
+          targetType: http-request
+        id: prepare-master-image-to-http
+        source: code_prepare_master_image
+        sourceHandle: source
+        target: http_master_image
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: http-request
+          targetType: code
+        id: http-master-image-to-parse
+        source: http_master_image
+        sourceHandle: source
+        target: code_parse_master_image
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: code
+          targetType: llm
+        id: parse-master-to-llm-variants
+        source: code_parse_master_prompt
+        sourceHandle: source
+        target: llm_variant_prompts
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: llm
+          targetType: code
+        id: llm-variants-to-parse
+        source: llm_variant_prompts
+        sourceHandle: source
+        target: code_parse_variants
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: code
+          targetType: iteration
+        id: parse-variants-to-iteration
+        source: code_parse_variants
+        sourceHandle: source
+        target: iteration_reference_images
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: true
+          isInLoop: false
+          iteration_id: iteration_reference_images
+          sourceType: iteration-start
+          targetType: code
+        id: iteration-start-to-code-prepare-variant
+        source: iteration_reference_imagesstart
+        sourceHandle: source
+        target: code_prepare_variant_image
+        targetHandle: target
+        type: custom
+        zIndex: 1002
+      - data:
+          isInIteration: true
+          isInLoop: false
+          iteration_id: iteration_reference_images
+          sourceType: code
+          targetType: http-request
+        id: code-prepare-variant-to-http
+        source: code_prepare_variant_image
+        sourceHandle: source
+        target: http_variant_image
+        targetHandle: target
+        type: custom
+        zIndex: 1002
+      - data:
+          isInIteration: true
+          isInLoop: false
+          iteration_id: iteration_reference_images
+          sourceType: http-request
+          targetType: code
+        id: http-variant-to-code-parse
+        source: http_variant_image
+        sourceHandle: source
+        target: code_parse_variant_image
+        targetHandle: target
+        type: custom
+        zIndex: 1002
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: code
+          targetType: llm
+        id: parse-variants-to-llm-templates
+        source: code_parse_variants
+        sourceHandle: source
+        target: llm_template_prompts
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: llm
+          targetType: code
+        id: llm-templates-to-parse
+        source: llm_template_prompts
+        sourceHandle: source
+        target: code_parse_template_prompts
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: code
+          targetType: end
+        id: parse-master-image-to-end
+        source: code_parse_master_image
+        sourceHandle: source
+        target: end_node
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: iteration
+          targetType: end
+        id: iteration-to-end
+        source: iteration_reference_images
+        sourceHandle: source
+        target: end_node
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: code
+          targetType: end
+        id: parse-template-to-end
+        source: code_parse_template_prompts
+        sourceHandle: source
+        target: end_node
+        targetHandle: target
+        type: custom
+        zIndex: 0
+    nodes:
+      - data:
+          desc: 输入门店、商品清单和生图参数，驱动四步式海报提示词工作流。
+          selected: false
+          title: Start
+          type: start
+          variables:
+            - default: 立卓超市
+              hint: ''
+              label: 门店名称
+              options: []
+              placeholder: 请输入门店名称
+              required: true
+              type: text-input
+              variable: store_name
+            - default: 夏日冰饮站
+              hint: ''
+              label: 主标题
+              options: []
+              placeholder: 请输入主标题
+              required: true
+              type: text-input
+              variable: campaign_title
+            - default: 夏日限时特惠 冰爽一夏
+              hint: ''
+              label: 活动信息条带
+              options: []
+              placeholder: 请输入活动信息条带文案
+              required: true
+              type: text-input
+              variable: promo_strip
+            - default: 今日上新｜怀旧冰饮低价开喝
+              hint: ''
+              label: 促销补充文案
+              options: []
+              placeholder: 请输入补充促销文案
+              required: true
+              type: text-input
+              variable: activity_copy
+            - default: |
+                - 冰镇汽水 ¥3.5/瓶 — 汽泡十足清凉解暑
+                - 盐汽水 ¥2.9/瓶 — 清爽解渴夏日必备
+                - 橘子汽水 ¥4.9/瓶 — 酸甜橙味童年回忆
+                - 酸梅汤 ¥5.9/杯 — 冰镇酸甜开胃解腻
+                - 老冰棍 ¥1.5/支 — 经典冰爽童年味道
+                - 果丹皮 ¥3.9/袋 — 酸甜筋道怀旧零食
+              hint: 按原文粘贴完整商品清单
+              label: 商品清单
+              max_length: 4000
+              options: []
+              placeholder: 请输入商品清单
+              required: true
+              type: paragraph
+              variable: product_list
+            - default: gpt-image-2
+              hint: ''
+              label: 生图模型
+              options:
+                - gpt-image-2
+              placeholder: 固定使用 gpt-image-2
+              required: true
+              type: select
+              variable: image_model
+            - default: 1024x1536
+              hint: ''
+              label: 图片尺寸
+              options:
+                - 1024x1536
+                - 1024x1024
+                - 1536x1024
+              placeholder: 选择图片尺寸
+              required: true
+              type: select
+              variable: image_size
+        height: 338
+        id: start_node
+        position:
+          x: 60
+          y: 320
+        positionAbsolute:
+          x: 60
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 280
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: 第一步：根据母版规则生成完整海报提示词，输出严格 JSON。
+          model:
+            completion_params:
+              temperature: 0.3
+            mode: chat
+            name: gpt-4o
+            provider: langgenius/openai/openai
+          prompt_template:
+            - id: 3f9596ea-c2da-40db-b9ff-llm-master-system
+              role: system
+              text: |
+                你是一名资深零售海报提示词工程师。
+
+                任务：为移动端社群发布场景，生成一条可直接用于图像模型的完整海报提示词。你必须把版式、中文文字保真、商品与价格关系、画面风格、氛围和构图全部写清楚。
+
+                输出要求：
+                1. 只输出 JSON，不要输出 Markdown，不要加解释。
+                2. JSON 结构必须是：
+                   {
+                     "poster_prompt": "string",
+                     "design_checklist": ["string", "..."]
+                   }
+                3. `poster_prompt` 必须是完整中文提示词，适合直接喂给图像模型生图。
+                4. `design_checklist` 用于校验海报是否满足规则，列出 6-10 条简洁检查项。
+
+                强制规则：
+                - 必须突出中文、数字、价格、单位、符号的清晰度与正确性。
+                - 必须明确写出“禁止乱码、错别字、文字扭曲、文字被商品遮挡、价格被纹理压住”。
+                - 商品文案必须要求“按原文逐字照排，不可改字”。
+                - 构图必须是手机竖屏，且 100% 适配社群发布。
+                - 风格必须是复古汽水招贴风，低饱和红蓝撞色，奶油白旧纸纹理，轻微印刷网点，复古细线圆角边框。
+                - 版式必须包含：顶部招牌栏、主标题、活动信息条带、2 列报刊分栏主体、奶油白旧纸背景、底部页脚。
+                - 主标题中“冰饮”二字必须红色高亮。
+                - 主体区域必须明确要求：高清商品图、商品名称、卖点、复古红大号价格，信息对齐整齐。
+                - 不显示商品分类标签。
+                - 输出结果必须是可直接发布的完整海报，不是背景图。
+            - id: 3f9596ea-c2da-40db-b9ff-llm-master-user
+              role: user
+              text: |
+                请基于以下输入生成完整海报提示词。
+
+                门店名称：{{#start_node.store_name#}}
+                主标题：{{#start_node.campaign_title#}}
+                活动信息条带：{{#start_node.promo_strip#}}
+                补充促销文案：{{#start_node.activity_copy#}}
+
+                商品清单（必须逐字保真，不可改字）：
+                {{#start_node.product_list#}}
+
+                额外补充：
+                - 适用场景：社群发布
+                - 价格必须醒目
+                - 重点突出夏日饮品与怀旧小卖部氛围
+                - 可优化复古印刷质感，但不能压住商品和价格信息
+          selected: false
+          title: Step1 Master Prompt
+          type: llm
+          variables: []
+          vision:
+            enabled: false
+        height: 140
+        id: llm_master_prompt
+        position:
+          x: 390
+          y: 320
+        positionAbsolute:
+          x: 390
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 280
+      - data:
+          code: |
+            import json
+            import re
+
+            def _strip_code_fence(raw_text: str) -> str:
+                text = (raw_text or "").strip()
+                if text.startswith("```"):
+                    text = re.sub(r"^```(?:json)?\s*", "", text)
+                    text = re.sub(r"\s*```$", "", text)
+                return text.strip()
+
+            def main(raw_text: str) -> dict:
+                payload = json.loads(_strip_code_fence(raw_text))
+                poster_prompt = payload.get("poster_prompt", "").strip()
+                design_checklist = payload.get("design_checklist", [])
+                if not poster_prompt:
+                    raise ValueError("poster_prompt is empty")
+                if not isinstance(design_checklist, list):
+                    raise ValueError("design_checklist must be a list")
+                return {
+                    "poster_prompt": poster_prompt,
+                    "design_checklist": design_checklist,
+                    "master_prompt_json": json.dumps(payload, ensure_ascii=False, indent=2),
+                }
+          code_language: python3
+          desc: 解析第一步 JSON，提取完整海报提示词。
+          outputs:
+            poster_prompt:
+              children: null
+              type: string
+            design_checklist:
+              children: null
+              type: array[string]
+            master_prompt_json:
+              children: null
+              type: string
+          selected: false
+          title: Parse Master Prompt
+          type: code
+          variables:
+            - value_selector:
+                - llm_master_prompt
+                - text
+              value_type: string
+              variable: raw_text
+        height: 120
+        id: code_parse_master_prompt
+        position:
+          x: 720
+          y: 320
+        positionAbsolute:
+          x: 720
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 280
+      - data:
+          code: |
+            import json
+
+            def main(poster_prompt: str, image_model: str, image_size: str) -> dict:
+                body = {
+                    "model": image_model,
+                    "size": image_size,
+                    "quality": "high",
+                    "output_format": "png",
+                    "n": 1,
+                    "prompt": poster_prompt,
+                }
+                return {
+                    "body_json": json.dumps(body, ensure_ascii=False),
+                }
+          code_language: python3
+          desc: 将第一步产出的完整海报提示词组装成生图请求。
+          outputs:
+            body_json:
+              children: null
+              type: string
+          selected: false
+          title: Prepare Master Image Request
+          type: code
+          variables:
+            - value_selector:
+                - code_parse_master_prompt
+                - poster_prompt
+              value_type: string
+              variable: poster_prompt
+            - value_selector:
+                - start_node
+                - image_model
+              value_type: string
+              variable: image_model
+            - value_selector:
+                - start_node
+                - image_size
+              value_type: string
+              variable: image_size
+        height: 120
+        id: code_prepare_master_image
+        position:
+          x: 1050
+          y: 150
+        positionAbsolute:
+          x: 1050
+          y: 150
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 280
+      - data:
+          authorization:
+            type: api-key
+            config:
+              type: bearer
+              api_key: '{{#env.IMAGE_API_KEY#}}'
+          body:
+            type: json
+            data: '{{#code_prepare_master_image.body_json#}}'
+          desc: 第一步实际生成完整海报参考图。
+          headers: |-
+            Content-Type: application/json
+          method: post
+          params: ''
+          retry_config:
+            enabled: false
+            max_retries: 1
+            retry_interval: 1000
+            exponential_backoff:
+              enabled: false
+              multiplier: 2
+              max_interval: 10000
+          timeout:
+            connect: 10
+            read: 120
+            write: 120
+          title: Generate Master Image
+          type: http-request
+          url: '{{#env.IMAGE_API_URL#}}'
+        height: 120
+        id: http_master_image
+        position:
+          x: 1380
+          y: 150
+        positionAbsolute:
+          x: 1380
+          y: 150
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 280
+      - data:
+          code: |
+            import json
+            import re
+
+            def _loads_maybe(value):
+                if isinstance(value, dict):
+                    return value
+                text = (value or "").strip()
+                if not text:
+                    return {}
+                if text.startswith("```"):
+                    text = re.sub(r"^```(?:json)?\s*", "", text)
+                    text = re.sub(r"\s*```$", "", text)
+                return json.loads(text)
+
+            def main(response_body: str) -> dict:
+                payload = _loads_maybe(response_body)
+                first_item = (payload.get("data") or [{}])[0] or {}
+                image_url = first_item.get("url", "")
+                has_b64 = bool(first_item.get("b64_json"))
+                return {
+                    "image_url": image_url,
+                    "image_b64_available": has_b64,
+                    "revised_prompt": first_item.get("revised_prompt", ""),
+                    "response_json": json.dumps(payload, ensure_ascii=False, indent=2),
+                }
+          code_language: python3
+          desc: 提取第一步生图结果，兼容 URL 或 Base64 返回格式。
+          outputs:
+            image_url:
+              children: null
+              type: string
+            image_b64_available:
+              children: null
+              type: boolean
+            revised_prompt:
+              children: null
+              type: string
+            response_json:
+              children: null
+              type: string
+          selected: false
+          title: Parse Master Image
+          type: code
+          variables:
+            - value_selector:
+                - http_master_image
+                - body
+              value_type: string
+              variable: response_body
+        height: 120
+        id: code_parse_master_image
+        position:
+          x: 1710
+          y: 150
+        positionAbsolute:
+          x: 1710
+          y: 150
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 280
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: 第二步：基于母版生成 8 条差异化变体提示词，输出严格 JSON。
+          model:
+            completion_params:
+              temperature: 0.7
+            mode: chat
+            name: gpt-4o
+            provider: langgenius/openai/openai
+          prompt_template:
+            - id: a802279f-4aa1-4a5b-variant-system
+              role: system
+              text: |
+                你是一名擅长商超海报与电商陈列的提示词工程师。
+
+                任务：参照母版海报提示词，生成 8 条变体提示词，分为四组：
+                - 单品场景 ×2
+                - 2-4品场景 ×2
+                - 5-8品场景 ×2
+                - 8-12品场景 ×2
+
+                你必须保留核心主题和整体复古招贴风，但在以下维度做出明确差异：
+                - 色彩搭配
+                - 构图角度
+                - 细节装饰元素
+                - 使用场景（入口海报、货架端头、社群配图等）
+
+                输出要求：
+                1. 只输出 JSON，不要输出 Markdown。
+                2. JSON 结构必须是：
+                   {
+                     "variants": [
+                       {
+                         "variant_id": "single_1",
+                         "scene_group": "单品场景",
+                         "product_count_range": "单品",
+                         "use_case": "入口海报",
+                         "difference_focus": "string",
+                         "prompt": "string"
+                       }
+                     ]
+                   }
+                3. 必须正好输出 8 条，且 variant_id 固定为：
+                   single_1, single_2, group_2_4_1, group_2_4_2, group_5_8_1, group_5_8_2, group_8_12_1, group_8_12_2
+                4. 每条 `prompt` 都必须是可直接用于图像模型的完整中文提示词。
+                5. 每条 `prompt` 都必须保留文字保真规则、商品文字不得改字、价格必须醒目、移动端可读性强等硬约束。
+                6. 当前案例只有 6 款真实商品：在 8-12 品场景里，允许通过重复摆放包装、增加多面陈列和层次来营造“8-12 品丰富感”，但真实文案区仍只能列出现有商品原文。
+            - id: a802279f-4aa1-4a5b-variant-user
+              role: user
+              text: |
+                请基于以下母版信息生成 8 条变体提示词。
+
+                母版海报提示词：
+                {{#code_parse_master_prompt.poster_prompt#}}
+
+                当前门店名称：{{#start_node.store_name#}}
+                当前主标题：{{#start_node.campaign_title#}}
+                当前活动信息条带：{{#start_node.promo_strip#}}
+                当前商品清单：
+                {{#start_node.product_list#}}
+
+                请确保：
+                - 单品场景优先突出 1 个主视觉商品
+                - 2-4品场景可挑选 2-4 个代表商品组合展示
+                - 5-8品场景可使用当前全部 6 款商品
+                - 8-12品场景在保留 6 款真实商品文案的前提下，通过重复包装、多面陈列制造更丰富的货架感
+          selected: false
+          title: Step2 Variant Prompts
+          type: llm
+          variables: []
+          vision:
+            enabled: false
+        height: 140
+        id: llm_variant_prompts
+        position:
+          x: 1050
+          y: 430
+        positionAbsolute:
+          x: 1050
+          y: 430
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 280
+      - data:
+          code: |
+            import json
+            import re
+
+            EXPECTED_IDS = [
+                "single_1",
+                "single_2",
+                "group_2_4_1",
+                "group_2_4_2",
+                "group_5_8_1",
+                "group_5_8_2",
+                "group_8_12_1",
+                "group_8_12_2",
+            ]
+
+            def _strip_code_fence(raw_text: str) -> str:
+                text = (raw_text or "").strip()
+                if text.startswith("```"):
+                    text = re.sub(r"^```(?:json)?\s*", "", text)
+                    text = re.sub(r"\s*```$", "", text)
+                return text.strip()
+
+            def main(raw_text: str) -> dict:
+                payload = json.loads(_strip_code_fence(raw_text))
+                variants = payload.get("variants", [])
+                if len(variants) != 8:
+                    raise ValueError(f"expected 8 variants, got {len(variants)}")
+                ids = [item.get("variant_id") for item in variants]
+                if ids != EXPECTED_IDS:
+                    raise ValueError(f"unexpected variant ids: {ids}")
+                for item in variants:
+                    if not item.get("prompt"):
+                        raise ValueError("variant prompt is empty")
+                return {
+                    "variants": variants,
+                    "variant_count": len(variants),
+                    "variants_json": json.dumps(payload, ensure_ascii=False, indent=2),
+                }
+          code_language: python3
+          desc: 解析第二步 JSON，并强校验 8 条变体结构。
+          outputs:
+            variants:
+              children: null
+              type: array[object]
+            variant_count:
+              children: null
+              type: number
+            variants_json:
+              children: null
+              type: string
+          selected: false
+          title: Parse Variant Prompts
+          type: code
+          variables:
+            - value_selector:
+                - llm_variant_prompts
+                - text
+              value_type: string
+              variable: raw_text
+        height: 120
+        id: code_parse_variants
+        position:
+          x: 1380
+          y: 430
+        positionAbsolute:
+          x: 1380
+          y: 430
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 280
+      - data:
+          desc: 第三步：迭代 8 条变体提示词并逐条生成参考图。
+          error_handle_mode: terminated
+          flatten_output: false
+          height: 260
+          is_parallel: false
+          iterator_input_type: array[object]
+          iterator_selector:
+            - code_parse_variants
+            - variants
+          output_selector:
+            - code_parse_variant_image
+            - result
+          output_type: array[object]
+          parallel_nums: 10
+          selected: false
+          start_node_id: iteration_reference_imagesstart
+          title: Step3 Reference Images
+          type: iteration
+          width: 880
+        height: 260
+        id: iteration_reference_images
+        position:
+          x: 1710
+          y: 360
+        positionAbsolute:
+          x: 1710
+          y: 360
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 880
+        zIndex: 1
+      - data:
+          desc: ''
+          isInIteration: true
+          selected: false
+          title: ''
+          type: iteration-start
+        draggable: false
+        height: 48
+        id: iteration_reference_imagesstart
+        parentId: iteration_reference_images
+        position:
+          x: 24
+          y: 96
+        positionAbsolute:
+          x: 1734
+          y: 456
+        selectable: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom-iteration-start
+        width: 44
+        zIndex: 1002
+      - data:
+          code: |
+            import json
+
+            def main(variant_item: dict, image_model: str, image_size: str) -> dict:
+                prompt = (variant_item or {}).get("prompt", "").strip()
+                if not prompt:
+                    raise ValueError("variant prompt is empty")
+                body = {
+                    "model": image_model,
+                    "size": image_size,
+                    "quality": "high",
+                    "output_format": "png",
+                    "n": 1,
+                    "prompt": prompt,
+                }
+                return {
+                    "variant_id": variant_item.get("variant_id", ""),
+                    "scene_group": variant_item.get("scene_group", ""),
+                    "product_count_range": variant_item.get("product_count_range", ""),
+                    "use_case": variant_item.get("use_case", ""),
+                    "difference_focus": variant_item.get("difference_focus", ""),
+                    "prompt": prompt,
+                    "body_json": json.dumps(body, ensure_ascii=False),
+                }
+          code_language: python3
+          desc: 组装每条变体提示词的生图请求。
+          isInIteration: true
+          iteration_id: iteration_reference_images
+          outputs:
+            variant_id:
+              children: null
+              type: string
+            scene_group:
+              children: null
+              type: string
+            product_count_range:
+              children: null
+              type: string
+            use_case:
+              children: null
+              type: string
+            difference_focus:
+              children: null
+              type: string
+            prompt:
+              children: null
+              type: string
+            body_json:
+              children: null
+              type: string
+          selected: false
+          title: Prepare Variant Image
+          type: code
+          variables:
+            - value_selector:
+                - iteration_reference_images
+                - item
+              value_type: object
+              variable: variant_item
+            - value_selector:
+                - start_node
+                - image_model
+              value_type: string
+              variable: image_model
+            - value_selector:
+                - start_node
+                - image_size
+              value_type: string
+              variable: image_size
+        height: 160
+        id: code_prepare_variant_image
+        parentId: iteration_reference_images
+        position:
+          x: 120
+          y: 70
+        positionAbsolute:
+          x: 1830
+          y: 430
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 250
+        zIndex: 1002
+      - data:
+          authorization:
+            type: api-key
+            config:
+              type: bearer
+              api_key: '{{#env.IMAGE_API_KEY#}}'
+          body:
+            type: json
+            data: '{{#code_prepare_variant_image.body_json#}}'
+          desc: 为每条变体提示词生成 1 张参考效果图。
+          headers: |-
+            Content-Type: application/json
+          isInIteration: true
+          iteration_id: iteration_reference_images
+          method: post
+          params: ''
+          retry_config:
+            enabled: false
+            max_retries: 1
+            retry_interval: 1000
+            exponential_backoff:
+              enabled: false
+              multiplier: 2
+              max_interval: 10000
+          timeout:
+            connect: 10
+            read: 120
+            write: 120
+          title: Generate Variant Image
+          type: http-request
+          url: '{{#env.IMAGE_API_URL#}}'
+        height: 120
+        id: http_variant_image
+        parentId: iteration_reference_images
+        position:
+          x: 410
+          y: 70
+        positionAbsolute:
+          x: 2120
+          y: 430
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 250
+        zIndex: 1002
+      - data:
+          code: |
+            import json
+            import re
+
+            def _loads_maybe(value):
+                if isinstance(value, dict):
+                    return value
+                text = (value or "").strip()
+                if not text:
+                    return {}
+                if text.startswith("```"):
+                    text = re.sub(r"^```(?:json)?\s*", "", text)
+                    text = re.sub(r"\s*```$", "", text)
+                return json.loads(text)
+
+            def main(
+                variant_id: str,
+                scene_group: str,
+                product_count_range: str,
+                use_case: str,
+                difference_focus: str,
+                prompt: str,
+                response_body: str,
+            ) -> dict:
+                payload = _loads_maybe(response_body)
+                first_item = (payload.get("data") or [{}])[0] or {}
+                result = {
+                    "variant_id": variant_id,
+                    "scene_group": scene_group,
+                    "product_count_range": product_count_range,
+                    "use_case": use_case,
+                    "difference_focus": difference_focus,
+                    "prompt": prompt,
+                    "image_url": first_item.get("url", ""),
+                    "image_b64_available": bool(first_item.get("b64_json")),
+                    "revised_prompt": first_item.get("revised_prompt", ""),
+                }
+                return {
+                    "result": result,
+                }
+          code_language: python3
+          desc: 解析每条变体的参考图结果，返回结构化验证信息。
+          isInIteration: true
+          iteration_id: iteration_reference_images
+          outputs:
+            result:
+              children: null
+              type: object
+          selected: false
+          title: Parse Variant Image
+          type: code
+          variables:
+            - value_selector:
+                - code_prepare_variant_image
+                - variant_id
+              value_type: string
+              variable: variant_id
+            - value_selector:
+                - code_prepare_variant_image
+                - scene_group
+              value_type: string
+              variable: scene_group
+            - value_selector:
+                - code_prepare_variant_image
+                - product_count_range
+              value_type: string
+              variable: product_count_range
+            - value_selector:
+                - code_prepare_variant_image
+                - use_case
+              value_type: string
+              variable: use_case
+            - value_selector:
+                - code_prepare_variant_image
+                - difference_focus
+              value_type: string
+              variable: difference_focus
+            - value_selector:
+                - code_prepare_variant_image
+                - prompt
+              value_type: string
+              variable: prompt
+            - value_selector:
+                - http_variant_image
+                - body
+              value_type: string
+              variable: response_body
+        height: 160
+        id: code_parse_variant_image
+        parentId: iteration_reference_images
+        position:
+          x: 700
+          y: 70
+        positionAbsolute:
+          x: 2410
+          y: 430
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 250
+        zIndex: 1002
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: 第四步：把 8 条变体提示词中的具体内容替换为变量占位符，输出模板化提示词。
+          model:
+            completion_params:
+              temperature: 0.4
+            mode: chat
+            name: gpt-4o
+            provider: langgenius/openai/openai
+          prompt_template:
+            - id: 7dd74459-1c3c-4cdf-template-system
+              role: system
+              text: |
+                你是一名提示词模板工程师。
+
+                任务：把现有 8 条变体提示词模板化。你必须保留风格、构图、差异化描述与使用场景，但把具体业务内容替换成可复用的变量占位符。
+
+                强制规则：
+                - 只输出 JSON，不要输出 Markdown，不要解释。
+                - JSON 结构必须是：
+                  {
+                    "template_prompts": [
+                      {
+                        "variant_id": "single_1",
+                        "scene_group": "单品场景",
+                        "template_prompt": "string"
+                      }
+                    ]
+                  }
+                - 必须正好输出 8 条，并保留原始 variant_id。
+                - 至少使用以下占位符中的合适组合：
+                  {{门店名称}}、{{主标题}}、{{活动信息}}、{{补充文案}}、{{商品清单}}、{{商品名称}}、{{价格}}、{{单位}}、{{卖点}}、{{主视觉商品}}、{{商品数量级}}、{{海报用途}}
+                - 不得保留“立卓超市”或任何当前商品的具体名称、售价、单位、卖点。
+                - 模板提示词仍然必须强调中文文字保真、价格醒目、移动端清晰可读、复古汽水招贴风。
+            - id: 7dd74459-1c3c-4cdf-template-user
+              role: user
+              text: |
+                请将以下 8 条变体提示词模板化，并一一对应输出。
+
+                变体提示词 JSON：
+                {{#code_parse_variants.variants_json#}}
+          selected: false
+          title: Step4 Template Prompts
+          type: llm
+          variables: []
+          vision:
+            enabled: false
+        height: 140
+        id: llm_template_prompts
+        position:
+          x: 1710
+          y: 700
+        positionAbsolute:
+          x: 1710
+          y: 700
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 280
+      - data:
+          code: |
+            import json
+            import re
+
+            EXPECTED_IDS = [
+                "single_1",
+                "single_2",
+                "group_2_4_1",
+                "group_2_4_2",
+                "group_5_8_1",
+                "group_5_8_2",
+                "group_8_12_1",
+                "group_8_12_2",
+            ]
+
+            def _strip_code_fence(raw_text: str) -> str:
+                text = (raw_text or "").strip()
+                if text.startswith("```"):
+                    text = re.sub(r"^```(?:json)?\s*", "", text)
+                    text = re.sub(r"\s*```$", "", text)
+                return text.strip()
+
+            def main(raw_text: str) -> dict:
+                payload = json.loads(_strip_code_fence(raw_text))
+                template_prompts = payload.get("template_prompts", [])
+                if len(template_prompts) != 8:
+                    raise ValueError(f"expected 8 template prompts, got {len(template_prompts)}")
+                ids = [item.get("variant_id") for item in template_prompts]
+                if ids != EXPECTED_IDS:
+                    raise ValueError(f"unexpected template ids: {ids}")
+                for item in template_prompts:
+                    if not item.get("template_prompt"):
+                        raise ValueError("template_prompt is empty")
+                return {
+                    "template_prompts": template_prompts,
+                    "templates_json": json.dumps(payload, ensure_ascii=False, indent=2),
+                }
+          code_language: python3
+          desc: 解析第四步 JSON，提取可复用模板化提示词。
+          outputs:
+            template_prompts:
+              children: null
+              type: array[object]
+            templates_json:
+              children: null
+              type: string
+          selected: false
+          title: Parse Template Prompts
+          type: code
+          variables:
+            - value_selector:
+                - llm_template_prompts
+                - text
+              value_type: string
+              variable: raw_text
+        height: 120
+        id: code_parse_template_prompts
+        position:
+          x: 2040
+          y: 700
+        positionAbsolute:
+          x: 2040
+          y: 700
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 280
+      - data:
+          desc: 输出四步工作流的最终结果对象。
+          outputs:
+            - value_selector:
+                - code_parse_master_prompt
+                - poster_prompt
+              value_type: string
+              variable: master_poster_prompt
+            - value_selector:
+                - code_parse_master_prompt
+                - design_checklist
+              value_type: array[string]
+              variable: master_design_checklist
+            - value_selector:
+                - code_parse_master_image
+                - image_url
+              value_type: string
+              variable: master_image_url
+            - value_selector:
+                - code_parse_master_image
+                - image_b64_available
+              value_type: boolean
+              variable: master_image_b64_available
+            - value_selector:
+                - code_parse_master_image
+                - revised_prompt
+              value_type: string
+              variable: master_revised_prompt
+            - value_selector:
+                - code_parse_variants
+                - variants
+              value_type: array[object]
+              variable: variant_prompts
+            - value_selector:
+                - iteration_reference_images
+                - output
+              value_type: array[object]
+              variable: reference_images
+            - value_selector:
+                - code_parse_template_prompts
+                - template_prompts
+              value_type: array[object]
+              variable: templated_prompts
+          selected: false
+          title: End
+          type: end
+        height: 236
+        id: end_node
+        position:
+          x: 2390
+          y: 320
+        positionAbsolute:
+          x: 2390
+          y: 320
+        selected: true
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 300
+    viewport:
+      x: 0
+      y: 0
+      zoom: 0.55

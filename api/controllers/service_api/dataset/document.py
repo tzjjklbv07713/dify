@@ -15,11 +15,9 @@ from uuid import UUID
 from flask import current_app, request, send_file
 from pydantic import BaseModel, Field, GetJsonSchemaHandler, WithJsonSchema, field_validator, model_validator
 from sqlalchemy import desc, func, select
-from sqlalchemy.orm import scoped_session
 from werkzeug.exceptions import Forbidden, NotFound
 
 import services
-from core.db.session_factory import session_factory
 from controllers.common.controller_schemas import DocumentBatchDownloadZipPayload
 from controllers.common.errors import (
     FilenameNotExistsError,
@@ -48,6 +46,7 @@ from controllers.service_api.wraps import (
     cloud_edition_billing_rate_limit_check,
     cloud_edition_billing_resource_check,
 )
+from core.db.session_factory import session_factory
 from core.errors.error import ProviderTokenNotInitError
 from core.rag.entities import PreProcessingRule, Rule, Segmentation
 from core.rag.retrieval.retrieval_methods import RetrievalMethod

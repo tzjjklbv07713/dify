@@ -2277,7 +2277,8 @@ class DocumentService:
                             raise ValueError("File source info is required")
                         upload_file_list = knowledge_config.data_source.info_list.file_info_list.file_ids
                         logger.warning(
-                            "dify_text_sync_probe save_document lookup dataset_id=%s upload_file_ids=%s session_type=%s",
+                            "dify_text_sync_probe save_document lookup "
+                            "dataset_id=%s upload_file_ids=%s session_type=%s",
                             dataset.id,
                             upload_file_list,
                             type(session).__name__,
@@ -2291,7 +2292,8 @@ class DocumentService:
                             ).all()
                         )
                         logger.warning(
-                            "dify_text_sync_probe save_document resolved dataset_id=%s resolved_file_ids=%s resolved_count=%s",
+                            "dify_text_sync_probe save_document resolved "
+                            "dataset_id=%s resolved_file_ids=%s resolved_count=%s",
                             dataset.id,
                             [str(file.id) for file in files],
                             len(files),

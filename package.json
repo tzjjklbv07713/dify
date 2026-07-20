@@ -31,25 +31,5 @@
     "eslint-plugin-no-barrel-files": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:"
-  },
-  "version": "1.0.0",
-  "description": "![cover-v5-optimized](./images/GitHub_README_if.png)",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
-  },
-  "dependencies": {
-    "node": "^22.23.1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/tzjjklbv07713/dify.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/tzjjklbv07713/dify/issues"
-  },
-  "homepage": "https://github.com/tzjjklbv07713/dify#readme"
+  }
 }

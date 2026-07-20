@@ -226,7 +226,9 @@ class TestFileService:
             external_session.flush.assert_called_once()
             external_session.commit.assert_not_called()
 
-    def test_upload_text_reuses_scoped_session_proxy(self, file_service: FileService, mock_db_session, mock_session_maker):
+    def test_upload_text_reuses_scoped_session_proxy(
+        self, file_service: FileService, mock_db_session, mock_session_maker
+    ):
         text = "sample text"
         text_name = "test.txt"
         user_id = "user_id"

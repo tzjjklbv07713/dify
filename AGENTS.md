@@ -48,3 +48,21 @@ The codebase is split into:
 - Backend architecture adheres to DDD and Clean Architecture principles.
 - Async work runs through Celery with Redis as the broker.
 - Frontend user-facing strings must use `web/i18n/en-US/`; avoid hardcoded text.
+
+<!-- development-workflow-router:start -->
+## Development Workflow Router
+
+For development, bugfix, refactor, migration, performance, security, UI/UX, or release tasks, use `$development-workflow-router`.
+
+The router uses its built-in default SOP. If `WORKFLOW-SOP.md` exists in this project, read it as a project-specific override.
+
+Before implementation, produce:
+- Workflow Route
+- Agent Work Order
+- Capability Boundaries
+- Prompt Pack
+- Validation Gates
+- Rework/Risk Register
+
+High-risk actions require confirmation before execution: production deploys, destructive data operations, secrets, permissions, major architecture changes, and irreversible migrations.
+<!-- development-workflow-router:end -->
