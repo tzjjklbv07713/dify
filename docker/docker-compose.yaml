@@ -226,7 +226,7 @@ services:
   # API service
   api:
     <<: *shared-api-worker-config
-    image: langgenius/dify-api:1.15.0
+    image: gzjh/dify-api:1.15.0-text-sync-20260718-r3
     environment:
       MODE: api
       SENTRY_DSN: ${API_SENTRY_DSN:-}
@@ -429,7 +429,7 @@ services:
                -c 'statement_timeout=${POSTGRES_STATEMENT_TIMEOUT:-0}'
                -c 'idle_in_transaction_session_timeout=${POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT:-0}'
     volumes:
-      - ./volumes/db/data:/var/lib/postgresql/data
+      - dify_pg_data:/var/lib/postgresql/data
     healthcheck:
       test:
         [
@@ -1200,3 +1200,4 @@ networks:
 volumes:
   oradata:
   dify_es01_data:
+  dify_pg_data:
