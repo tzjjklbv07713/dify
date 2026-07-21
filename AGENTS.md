@@ -38,6 +38,7 @@ The codebase is split into:
 - Prefer editing existing files; add new documentation only when requested.
 - Inject dependencies through constructors and preserve clean architecture boundaries.
 - Handle errors with domain-specific exceptions at the correct layer.
+- End each response with the concrete next planned step so the user knows what will happen next.
 
 ## Project Conventions
 

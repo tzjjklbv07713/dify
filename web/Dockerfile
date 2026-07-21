@@ -30,14 +30,17 @@ COPY packages /app/packages
 # Use packageManager from package.json
 RUN corepack install
 
-# Install workspace dependencies for the Docker build environment.
-RUN VITE_GIT_HOOKS=0 pnpm install --frozen-lockfile
+# Install workspace dependencies for the Docker build environment without
+# downloading a separate Node runtime that the base image already provides.
+RUN VITE_GIT_HOOKS=0 pnpm install --frozen-lockfile --no-runtime
 
 # build resources
 FROM base AS builder
 WORKDIR /app
-COPY --from=packages /app/ .
 COPY . .
+# Re-apply the installed workspace tree after copying source. A source COPY
+# replaces workspace directories and otherwise drops their package symlinks.
+COPY --from=packages /app/ .
 
 WORKDIR /app/web
 ENV NODE_OPTIONS="--max-old-space-size=4096"

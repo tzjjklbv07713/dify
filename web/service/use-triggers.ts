@@ -350,6 +350,13 @@ const normalizeTriggerSubscription = (subscription: GeneratedTriggerSubscription
   }
 }
 
+export const normalizeTriggerSubscriptions = (response: unknown): TriggerSubscription[] => {
+  if (!Array.isArray(response))
+    return []
+
+  return response.map(subscription => normalizeTriggerSubscription(subscription as GeneratedTriggerSubscription))
+}
+
 const normalizeTriggerSubscriptionBuilder = (builder: GeneratedSubscriptionBuilder): TriggerSubscriptionBuilder => {
   return {
     id: builder.id,
@@ -551,7 +558,7 @@ export const useTriggerSubscriptions = (provider: string, enabled = true) => {
     queryKey: consoleQuery.workspaces.current.triggerProvider.byProvider.subscriptions.list.get.queryKey({ input: { params: { provider } } }),
     queryFn: async () => {
       const response = await consoleClient.workspaces.current.triggerProvider.byProvider.subscriptions.list.get({ params: { provider } })
-      return response.map(normalizeTriggerSubscription)
+      return normalizeTriggerSubscriptions(response)
     },
     enabled: enabled && !!provider,
   })
